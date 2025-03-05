@@ -21,23 +21,23 @@ import os
 import ssl
 import requests
 import certifi
-import sys
 import shutil
 import logging
-import winreg
 from ctypes import wintypes
-from packaging import version
+#from packaging import version
 import base64
 from urllib3.util.ssl_ import create_urllib3_context
 import urllib.request
 import traceback
 import requests.adapters
+from PyQt5.QtWidgets import QShortcut
+from PyQt5.QtGui import QKeySequence
+import chardet
 
-
-if __name__ == "__main__":
-     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-     app = QApplication(sys.argv)
+#if __name__ == "__main__":
+ #    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+  #   QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+   #  app = QApplication(sys.argv)
 
     
  #פונקצייה גלובלית לטיפול בשגיאות
@@ -47,29 +47,46 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     
 sys.excepthook = handle_exception
 
-
+# עידכון סטטוס גלובלי
+def update_global_status(message, status_type="info"):
+    """
+    פונקציה גלובלית לעדכון סטטוס עם סוגי סטטוס שונים
+    """
+    styles = {
+        "success": "color: green;",
+        "error": "color: red;",
+        "warning": "color: orange;",
+        "info": "color: black;"
+    }
+    
+    for widget in QApplication.topLevelWidgets():
+        if isinstance(widget, MainMenu):
+            widget.status_label.setText(message)
+            widget.status_label.setStyleSheet(styles.get(status_type, styles["info"]))
+            widget._safe_update_history(widget.text_display.toHtml(), message)
+            return True
+    return False
 
  #עיצוב גלובלי
 GLOBAL_STYLE = """
     QWidget {
         font-family: "Segoe UI", Arial;
-        font-size: 14px;
+        font-size: 20px;
     }
     QPushButton {
         font-size: 20px;
     }
     QLabel {
-        font-size: 20px;
+        font-size: 40px;
     }
     QComboBox {
         font-size: 20px;
     }
-    QLineEdit {
-        font-size: 20px;
-    }
+    QLineEdit {    
+    }   font-size: 20px;
     QCheckBox {
         font-size: 20px;
-    }
+    
 """
 
 # מזהה ייחודי לאפליקציה
@@ -81,10 +98,15 @@ icon_base64 = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAGP0lEQVR4Ae2dfUgUa
 class NavigationLoader(QThread):
     """מחלקה לטעינת וניתוח כותרות ברקע"""
     finished = pyqtSignal(dict)
+    log_signal = pyqtSignal(str)  # סיגנל חדש להדפסות
 
     def __init__(self, document):
         super().__init__()
         self.document = document
+
+    def log(self, message):
+        """פונקציית עזר להדפסה מבוקרת"""
+        self.log_signal.emit(message)
 
     def run(self):
         result = {
@@ -92,9 +114,18 @@ class NavigationLoader(QThread):
             'headers': [],
             'error': None
         }
+        label_style = """
+            QLabel {
+                color: #1a365d;
+                font-family: "Segoe UI", Arial;
+                font-size: 24px;
+                margin-bottom: 5px;
+            }
+        """
+
         
         try:
-            print("התחלת ניתוח כותרות...")  
+            self.log("התחלת ניתוח כותרות...")
             block = self.document.begin()
             while block.isValid():
                 block_format = block.blockFormat()
@@ -105,17 +136,17 @@ class NavigationLoader(QThread):
                         'position': block.position()
                     }
                     result['headers'].append(header_info)
-                    print(f"נמצאה כותרת: {header_info['text']}")  
+                    self.log(f"נמצאה כותרת: {header_info['text']}")
                 block = block.next()
             
             result['success'] = True
-            print(f"נמצאו {len(result['headers'])} כותרות")  
+            self.log(f"נמצאו {len(result['headers'])} כותרות")
         except Exception as e:
             result['error'] = f"שגיאה בניתוח הכותרות: {str(e)}"
-            print(f"שגיאה: {result['error']}") 
+            self.log(f"שגיאה: {result['error']}")
         finally:
             self.finished.emit(result)
-            print("סיום ניתוח כותרות")  
+            self.log("סיום ניתוח כותרות") 
 
 
 #מחלקה לגימטרייה
@@ -200,7 +231,7 @@ class CreateHeadersOtZria(QWidget):
         self.setWindowIcon(self.load_icon_from_base64(icon_base64))
         #self.setGeometry(100, 100, 500, 450)
         self.setLayoutDirection(Qt.RightToLeft)
-        self.setFixedWidth(600)
+        self.setFixedWidth(800)
 
         self.setWindowModality(Qt.ApplicationModal)
         self.setWindowFlags(Qt.Dialog | Qt.MSWindowsFixedSizeDialogHint)
@@ -228,7 +259,7 @@ class CreateHeadersOtZria(QWidget):
             QLabel {
                 color: #8B0000;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 20px;
                 background-color: #FFE4E1;
                 border: 2px solid #CD5C5C;
@@ -245,7 +276,7 @@ class CreateHeadersOtZria(QWidget):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 margin-bottom: 5px;
             }
         """
@@ -256,7 +287,7 @@ class CreateHeadersOtZria(QWidget):
                 border-radius: 15px;
                 padding: 5px 15px;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 background-color: white;
@@ -331,7 +362,7 @@ class CreateHeadersOtZria(QWidget):
                 color: black;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 120px;
@@ -386,7 +417,7 @@ class CreateHeadersOtZria(QWidget):
 
         for tage in remove:
             text = text.replace(tage, "")
-        withaute_gershayim = [gematria._num_to_str(i, thousands=False, withgershayim=False) for i in range(1, end)] + bb + cc + append_list
+        withaute_gershayim = [gematria.to_letter(i) for i in range(1, end)] + bb + cc + append_list
         return text in withaute_gershayim
 
     def strip_html_tags(self, text):
@@ -480,8 +511,10 @@ class CreateHeadersOtZria(QWidget):
                 
             if found and count_headings > 0:
                 self.show_custom_message("!מזל טוב", detailed_message, "560x310")
+                update_global_status(f"נוצרו {count_headings} כותרות")  
                 self.changes_made.emit()
             else:
+                
                 self.show_custom_message("!שים לב", [("לא נמצא מה להחליף", 12)], "250x80")
 
         except Exception as e:
@@ -525,7 +558,7 @@ class CreateSingleLetterHeaders(QWidget):
             QLabel {
                 color: #8B0000;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 20px;
                 background-color: #FFE4E1;
                 border: 2px solid #CD5C5C;
@@ -552,7 +585,7 @@ class CreateSingleLetterHeaders(QWidget):
                 border-radius: 15px;
                 padding: 5px 15px;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 background-color: white;
@@ -575,7 +608,7 @@ class CreateSingleLetterHeaders(QWidget):
                 border-radius: 15px;
                 padding: 5px 15px;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 background-color: white;
             }
@@ -634,7 +667,7 @@ class CreateSingleLetterHeaders(QWidget):
             QCheckBox {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 5px;
             }
             QCheckBox::indicator {
@@ -698,7 +731,7 @@ class CreateSingleLetterHeaders(QWidget):
                 color: black;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 120px;
@@ -762,7 +795,8 @@ class CreateSingleLetterHeaders(QWidget):
         try:
             self.main(self.file_path, finde, end + 1, level_num, ignore, start, remove)
             QMessageBox.information(self, "!מזל טוב", "התוכנה רצה בהצלחה!")
-            self.changes_made.emit()  # שליחת סיגנל על שינויים
+            update_global_status("כותרות לאותיות בודדות")
+            self.changes_made.emit() 
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"אירעה שגיאה: {str(e)}")
 
@@ -778,7 +812,7 @@ class CreateSingleLetterHeaders(QWidget):
 
         for tage in remove:
             text = text.replace(tage, "")
-        withaute_gershayim = [gematria._num_to_str(i, thousands=False, withgershayim=False) for i in range(1, end)] + bb + cc + append_list
+        withaute_gershayim = [gematria.to_letter(i) for i in range(1, end)] + bb + cc + append_list
         return text in withaute_gershayim
 
     def strip_html_tags(self, text, ignore=None):
@@ -1018,7 +1052,7 @@ class ChangeHeadingLevel(QWidget):
             QLabel {
                 color: #8B0000;  /* צבע טקסט אדום כהה */
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 20px;
                 background-color: #FFE4E1;  /* רקע אדום בהיר */
                 border: 2px solid #CD5C5C;  /* מסגרת אדומה */
@@ -1034,7 +1068,7 @@ class ChangeHeadingLevel(QWidget):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 margin-bottom: 5px;
             }
         """
@@ -1045,7 +1079,7 @@ class ChangeHeadingLevel(QWidget):
                 border-radius: 15px;
                 padding: 5px 15px;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 70px;
@@ -1103,7 +1137,7 @@ class ChangeHeadingLevel(QWidget):
                 color: black;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 120px;
@@ -1159,6 +1193,7 @@ class ChangeHeadingLevel(QWidget):
                     "!מזל טוב", 
                     f"בוצעו {changes_count} החלפות בהצלחה!"
                 )
+                update_global_status("שינוי רמת כותרות")
                 self.changes_made.emit() 
             else:
                 QMessageBox.information(
@@ -1249,7 +1284,7 @@ class EmphasizeAndPunctuate(QWidget):
             QLabel {
                 color: #1e4620;  /* ירוק כהה לטקסט */
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 20px;
                 background-color: #e8f5e9;  /* ירוק בהיר לרקע */
                 border: 2px solid #81c784;  /* ירוק בינוני למסגרת */
@@ -1265,7 +1300,7 @@ class EmphasizeAndPunctuate(QWidget):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 margin-bottom: 5px;
             }
         """
@@ -1277,7 +1312,7 @@ class EmphasizeAndPunctuate(QWidget):
                 border-radius: 15px;
                 padding: 5px 15px;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 background-color: white;
@@ -1313,7 +1348,7 @@ class EmphasizeAndPunctuate(QWidget):
             QCheckBox {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 5px;
             }
             QCheckBox::indicator {
@@ -1336,7 +1371,7 @@ class EmphasizeAndPunctuate(QWidget):
                 color: black;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 120px;
@@ -1389,6 +1424,7 @@ class EmphasizeAndPunctuate(QWidget):
                     "!מזל טוב", 
                     f"בוצעו {changes_count} שינויים בהצלחה!"
                 )
+                update_global_status("הדגשת מילה ראשונה וניקוד סוף קטע")
                 self.changes_made.emit()  # שליחת סיגנל על שינויים
             else:
                 QMessageBox.information(
@@ -1476,7 +1512,6 @@ class CreatePageBHeaders(QWidget):
         self.file_path = ""
         self.setWindowTitle("יצירת כותרות עמוד ב")
         self.setWindowIcon(self.load_icon_from_base64(icon_base64))
-        #self.setGeometry(100, 100, 500, 400)
         self.setLayoutDirection(Qt.RightToLeft)
         self.setFixedWidth(600)
         self.setWindowModality(Qt.ApplicationModal)
@@ -1488,19 +1523,22 @@ class CreatePageBHeaders(QWidget):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
 
+        # הסבר למשתמש - שילוב של שני ההסברים בעיצוב המודרני
         explanation = QLabel(
             "הסבר:\n\n"
-            "• התוכנה תוסיף כותרת 'עמוד ב' לפני קטעים ללא כותרת\n"
-            "• ניתן לבחור סוג כותרת ורמת כותרת שונים"
+            "• התוכנה תוסיף כותרת 'עמוד ב' במקרים הבאים:\n"
+            "• בתחילת שורה שכתוב בה 'עמוד ב' או 'ע\"ב'\n"
+            "• אם כתוב 'שם' לפני המילים הנ\"ל, המילה 'שם' תימחק\n"
+            "• אם כתוב 'גמרא' לפני המילים הנ\"ל, המילה 'גמרא' תועבר לשורה הבאה"
         )
         explanation.setStyleSheet("""
             QLabel {
-                color: #1e4620;  /* ירוק כהה לטקסט */
+                color: #1e4620;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 20px;
-                background-color: #e8f5e9;  /* ירוק בהיר לרקע */
-                border: 2px solid #81c784;  /* ירוק בינוני למסגרת */
+                background-color: #e8f5e9;
+                border: 2px solid #81c784;
                 border-radius: 15px;
                 font-weight: bold;
             }
@@ -1513,7 +1551,7 @@ class CreatePageBHeaders(QWidget):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 margin-bottom: 5px;
             }
         """
@@ -1524,7 +1562,7 @@ class CreatePageBHeaders(QWidget):
                 border-radius: 15px;
                 padding: 5px 15px;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 background-color: white;
@@ -1541,29 +1579,8 @@ class CreatePageBHeaders(QWidget):
             }
         """
 
-        headers_container = QHBoxLayout()
-
-
-        header_type_container = QVBoxLayout()
-        header_type_label = QLabel("סוג כותרת:")
-        header_type_label.setStyleSheet(label_style)
-        
-        self.header_type_var = QComboBox()
-        self.header_type_var.addItems([
-            "עמוד ב", 
-            "עמוד ב ע\"א", 
-            "עמוד ב ע\"ב", 
-            "עמוד ב'", 
-            "עמוד ב׳"
-        ])
-        self.header_type_var.setStyleSheet(combo_style)
-        self.header_type_var.setFixedWidth(170)
-        
-        header_type_container.addWidget(header_type_label, alignment=Qt.AlignCenter)
-        header_type_container.addWidget(self.header_type_var, alignment=Qt.AlignCenter)
-
-
-        level_container = QVBoxLayout()
+        # רמת כותרת
+        level_container = QHBoxLayout()
         level_label = QLabel("רמת כותרת:")
         level_label.setStyleSheet(label_style)
         
@@ -1573,16 +1590,12 @@ class CreatePageBHeaders(QWidget):
         self.level_var.setStyleSheet(combo_style)
         self.level_var.setFixedWidth(100)
         
-        level_container.addWidget(level_label, alignment=Qt.AlignCenter)
-        level_container.addWidget(self.level_var, alignment=Qt.AlignCenter)
-
-        headers_container.addStretch(1)
-        headers_container.addLayout(header_type_container)
-        headers_container.addStretch(1)
-        headers_container.addLayout(level_container)
-        headers_container.addStretch(1)
+        level_container.addStretch(1)
+        level_container.addWidget(self.level_var)
+        level_container.addWidget(level_label)
+        level_container.addStretch(1)
         
-        layout.addLayout(headers_container)
+        layout.addLayout(level_container)
 
         # כפתור הפעלה
         button_container = QHBoxLayout()
@@ -1596,7 +1609,7 @@ class CreatePageBHeaders(QWidget):
                 color: black;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 120px;
@@ -1613,11 +1626,8 @@ class CreatePageBHeaders(QWidget):
         button_container.addStretch(1)
         layout.addLayout(button_container)
 
-
         layout.addStretch()
-
         self.setLayout(layout)
-
 
     def set_file_path(self, file_path):
         """מקבלת את נתיב הקובץ מהחלון הראשי"""
@@ -1632,85 +1642,110 @@ class CreatePageBHeaders(QWidget):
         self.file_path = file_path
         return True
 
-    def run_script(self):
-        if not self.file_path:
-            QMessageBox.warning(self, "שגיאה", "נא לבחור קובץ תחילה")
-            return
+    def build_tag_agnostic_pattern(self, word, optional_end_chars="['\"']*"):
+        """בניית תבנית שמתעלמת מתגיות HTML"""
+        ANY_TAGS_SPACES = r'(?:<[^>]+>\s*)*'
+        pattern = ''
+        for char in word:
+            pattern += ANY_TAGS_SPACES + re.escape(char)
+        pattern += ANY_TAGS_SPACES
+        if optional_end_chars:
+            pattern += optional_end_chars + ANY_TAGS_SPACES
+        return pattern
 
-        try:
-            changes_count = self.process_file(
-                self.file_path, 
-                self.header_type_var.currentText(), 
-                int(self.level_var.currentText())
-            )
-            
-            if changes_count > 0:
-                QMessageBox.information(
-                    self, 
-                    "!מזל טוב", 
-                    f"בוצעו {changes_count} שינויים בהצלחה!"
-                )
-                self.changes_made.emit()  # שליחת סיגנל על שינויים
+    def strip_and_replace(self, text, header_level, counter):
+        """עיבוד הטקסט והחלפת המילים בכותרות"""
+        ANY_TAGS_SPACES = r'(?:<[^>]+>\s*)*'
+        NON_WORD = r'(?:[^\w<>]|$)'
+        pattern = r"^\s*" + ANY_TAGS_SPACES
+
+        # אופציונלי: המילה 'שם'
+        shem_pattern = self.build_tag_agnostic_pattern('שם', optional_end_chars='')
+        pattern += r"(?P<shem>" + shem_pattern + r"\s*)?"
+
+        # אופציונלי: 'גמרא' וגרסאותיה
+        gmarah_variants = ['גמרא', 'בגמרא', "גמ'", "בגמ'"]
+        gmarah_patterns = [self.build_tag_agnostic_pattern(word, optional_end_chars='') for word in gmarah_variants]
+        gmarah_pattern = r"(?P<gmarah>" + '|'.join(gmarah_patterns) + r")\s*"
+        pattern += r"(?:" + gmarah_pattern + r")?"
+
+        # 'עמוד ב' או 'ע"ב'
+        ab_variants = ['עמוד ב', 'ע"ב', "ע''ב", "ע'ב"]
+        ab_patterns = [r"(?<!\w)" + self.build_tag_agnostic_pattern(word) + r"(?!\w)" for word in ab_variants]
+        ab_pattern = r"(?P<ab>" + '|'.join(ab_patterns) + r")"
+
+        pattern += ab_pattern
+        pattern += NON_WORD
+        pattern += r"(?P<rest>.*)"
+
+        match_pattern = re.compile(pattern, re.IGNORECASE | re.UNICODE)
+
+        def replace_function(match):
+            header = f"<h{header_level}>עמוד ב</h{header_level}>"
+            rest_of_line = match.group('rest').lstrip()
+
+            gmarah_text = match.group('gmarah')
+            if gmarah_text:
+                gmarah_text = re.sub(ANY_TAGS_SPACES, '', gmarah_text).strip()
+
+            counter[0] += 1
+
+            if gmarah_text:
+                return f"{header}\n{gmarah_text} {rest_of_line}\n" if rest_of_line else f"{header}\n{gmarah_text}\n"
             else:
-                QMessageBox.information(
-                    self, 
-                    "!שים לב", 
-                    "לא נמצאו שינויים מתאימים בקובץ"
-                )
-        except Exception as e:
-            QMessageBox.critical(
-                self, 
-                "שגיאה", 
-                f"אירעה שגיאה בעיבוד הקובץ: {str(e)}"
-            )
+                return f"{header}\n{rest_of_line}\n" if rest_of_line else f"{header}\n"
 
-    def process_file(self, file_path, header_type, heading_level):
+        if re.search(r"<h\d>.*?</h\d>", text, re.IGNORECASE):
+            return text
+
+        new_text = match_pattern.sub(replace_function, text)
+        new_text = re.sub(r'\n\s*\n', '\n', new_text)
+
+        return new_text
+
+    def process_file(self, file_path, header_level):
+        """עיבוד הקובץ ויצירת הכותרות"""
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 lines = file.readlines()
 
             new_lines = []
-            changes_count = 0
-            is_first_paragraph = True
+            counter = [0]
 
             for line in lines:
-                # בדיקה אם השורה היא כותרת
-                if any(line.startswith(f'<h{n}>') for n in range(2, 10)):
-                    is_first_paragraph = False
-                    new_lines.append(line)
-                    continue
+                new_line = self.strip_and_replace(line, header_level, counter)
+                new_lines.append(new_line)
 
-                # בדיקה אם השורה ריקה
-                if not line.strip():
-                    new_lines.append(line)
-                    continue
-
-                # אם זהו הקטע הראשון ללא כותרת
-                if is_first_paragraph:
-                    # הוספת כותרת עמוד ב
-                    header_line = f'<h{heading_level}>{header_type}</h{heading_level}>\n'
-                    new_lines.append(header_line)
-                    changes_count += 1
-                    is_first_paragraph = False
-
-                new_lines.append(line)
-
-            # שמירת השינויים
-            if changes_count > 0:
+            if counter[0] > 0:
                 with open(file_path, 'w', encoding='utf-8') as file:
                     file.writelines(new_lines)
+                
+                QMessageBox.information(self, "!מזל טוב", f"בוצעו {counter[0]} שינויים בהצלחה!")
+                update_global_status("כותרות לעמוד ב")
+                self.changes_made.emit()
+            else:
+                QMessageBox.information(self, "!שים לב", "לא נמצאו שינויים מתאימים בקובץ")
 
-            return changes_count
-
-        except FileNotFoundError:
-            QMessageBox.critical(self, "שגיאה", "הקובץ לא נמצא")
-            return 0
-        except UnicodeDecodeError:
-            QMessageBox.critical(self, "שגיאה", "קידוד הקובץ אינו נתמך. יש להשתמש בקידוד UTF-8.")
-            return 0
         except Exception as e:
-            QMessageBox.critical(self, "שגיאה", f"שגיאה בעיבוד הקובץ: {str(e)}")
-            return 0
+            QMessageBox.critical(self, "שגיאה", f"אירעה שגיאה בעיבוד הקובץ: {str(e)}")
+
+    def run_script(self):
+        """הפעלת הסקריפט"""
+        if not self.file_path:
+            QMessageBox.warning(self, "שגיאה", "נא לבחור קובץ תחילה")
+            return
+
+        try:
+            header_level = int(self.level_var.currentText())
+            if header_level < 2 or header_level > 6:
+                QMessageBox.warning(self, "שגיאה", "רמת הכותרת צריכה להיות בין 2 ל-6")
+                return
+            
+            self.process_file(self.file_path, header_level)
+
+        except ValueError:
+            QMessageBox.warning(self, "שגיאה", "רמת הכותרת צריכה להיות מספר בין 2 ל-6")
+            return
 
     def load_icon_from_base64(self, base64_string):
         """טעינת אייקון ממחרוזת Base64"""
@@ -1727,9 +1762,9 @@ class ReplacePageBHeaders(QWidget):
     def __init__(self):
         super().__init__()
         self.file_path = ""
-        self.setWindowTitle("החלפת כותרות ל'עמוד ב'")
+        self.setWindowTitle("החלפת כותרות לעמוד ב")
         self.setWindowIcon(self.load_icon_from_base64(icon_base64))
-        #self.setGeometry(100, 100, 500, 500)
+        self.setGeometry(100, 100, 500, 500)
         self.setLayoutDirection(Qt.RightToLeft)
         self.setFixedWidth(600)
         self.setWindowModality(Qt.ApplicationModal)
@@ -1743,7 +1778,7 @@ class ReplacePageBHeaders(QWidget):
 
 
         attention = QLabel(
-            "שים לב!\n\n"
+            "שים לב!\n"
             "התוכנה פועלת רק אם הדפים והעמודים הוגדרו כבר ככותרות\n"
             "[לא משנה באיזו רמת כותרת]\n"
             "כגון:  <h3>עמוד ב</h3> או: <h2>עמוד ב</h2> וכן הלאה"
@@ -1752,7 +1787,7 @@ class ReplacePageBHeaders(QWidget):
             QLabel {
                 color: #8B0000;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 20px;
                 background-color: #FFE4E1;
                 border: 2px solid #CD5C5C;
@@ -1765,7 +1800,7 @@ class ReplacePageBHeaders(QWidget):
         layout.addWidget(attention)
 
         warning = QLabel(
-            "זהירות!\n\n"
+            "זהירות!\n"
             "בדוק היטב שלא פספסת שום כותרת של 'דף' לפני שאתה מריץ תוכנה זו\n"
             "כי במקרה של פספוס, הכותרת 'עמוד ב' שאחרי הפספוס תהפך לכותרת שגויה"
         )
@@ -1773,7 +1808,7 @@ class ReplacePageBHeaders(QWidget):
             QLabel {
                 color: #8B0000;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 20px;
                 background-color: #FFE4E1;
                 border: 2px solid #CD5C5C;
@@ -1789,7 +1824,7 @@ class ReplacePageBHeaders(QWidget):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 margin-bottom: 5px;
             }
         """
@@ -1800,7 +1835,7 @@ class ReplacePageBHeaders(QWidget):
                 border-radius: 15px;
                 padding: 5px 15px;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 background-color: white;
@@ -1836,7 +1871,7 @@ class ReplacePageBHeaders(QWidget):
         example1.setStyleSheet("""
             QLabel {
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 18px;
                 color: #666;
             }
         """)
@@ -1847,7 +1882,7 @@ class ReplacePageBHeaders(QWidget):
         example2.setStyleSheet("""
             QLabel {
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 18px;
                 color: #666;
             }
         """)
@@ -1866,7 +1901,7 @@ class ReplacePageBHeaders(QWidget):
                 color: black;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 120px;
@@ -1918,6 +1953,7 @@ class ReplacePageBHeaders(QWidget):
                     "!מזל טוב", 
                     f"בוצעו {replacements_made} החלפות בהצלחה!"
                 )
+                update_global_status("החלפות כותרת עמוד ב")
                 self.changes_made.emit()  # שליחת סיגנל על שינויים
             else:
                 QMessageBox.information(
@@ -1999,7 +2035,7 @@ def create_labeled_widget(label_text, widget):
     v_layout.setContentsMargins(0, 0, 0, 0)
     v_layout.setSpacing(2)
     label = QLabel(label_text)
-    label.setStyleSheet("font-size: 18px;")
+    label.setStyleSheet("font-size: 24px;")
     v_layout.addWidget(label)
     v_layout.addWidget(widget)
     container.setLayout(v_layout)
@@ -2387,7 +2423,7 @@ def create_labeled_widget(label_text, widget):
         QLabel {
             color: #1a365d;
             font-family: "Segoe UI", Arial;
-            font-size: 14px;
+            font-size: 24px;
             font-weight: bold;
             margin-bottom: 5px;
         }
@@ -2401,7 +2437,7 @@ def create_labeled_widget(label_text, widget):
             padding: 10px;
             background-color: white;
             font-family: "Segoe UI", Arial;
-            font-size: 12px;
+            font-size: 24px;
         }
     """)
     
@@ -2802,7 +2838,7 @@ class ImageToHtmlApp(QtWidgets.QWidget):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 10px;
             }
         """
@@ -2815,7 +2851,7 @@ class ImageToHtmlApp(QtWidgets.QWidget):
                color: black;
                font-weight: bold;
                font-family: "Segoe UI", Arial;
-               font-size: 11px;
+               font-size: 24px;
                min-height: 30px;
               max-height: 30px;
              }
@@ -2842,7 +2878,7 @@ class ImageToHtmlApp(QtWidgets.QWidget):
                 border: 2px dashed #2b4c7e;
                 border-radius: 15px;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 40px;
                 background-color: #f8f9fa;
             }
@@ -2863,7 +2899,7 @@ class ImageToHtmlApp(QtWidgets.QWidget):
                 border-radius: 15px;
                 padding: 10px;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 min-height: 20px;
             }
             QLineEdit:focus {
@@ -2903,7 +2939,7 @@ class ImageToHtmlApp(QtWidgets.QWidget):
             QLabel {
                 color: #28a745;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 10px;
                 background-color: #e8f5e9;
                 border-radius: 10px;
@@ -3133,7 +3169,7 @@ class TextCleanerApp(QWidget):
             QLabel {
                 color: #8B0000;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 20px;
                 background-color: #FFE4E1;
                 border: 2px solid #CD5C5C;
@@ -3158,7 +3194,7 @@ class TextCleanerApp(QWidget):
                 color: black;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 120px;
@@ -3185,7 +3221,7 @@ class TextCleanerApp(QWidget):
             QCheckBox {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 24px;
                 padding: 5px;
                 spacing: 10px;
             }
@@ -3235,7 +3271,7 @@ class TextCleanerApp(QWidget):
                 color: white;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 120px;
@@ -3259,7 +3295,7 @@ class TextCleanerApp(QWidget):
                 color: white;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 24px;
                 min-height: 30px;
                 max-height: 30px;
                 min-width: 120px;
@@ -3390,12 +3426,16 @@ class MainMenu(QMainWindow):
         self.document_history = []
         self.redo_history = []        
         self.current_file_path = ""
+        self.last_cursor_position = 0
         self.current_index = -1
         self.current_content = "" 
         self.last_processor_title = ""
-        self.current_version = "3.0.0"
+        self.current_version = "3.2.0"
         self.navigation_updated = False
         self.text_display = QTextBrowser()
+        self.navigation_loader = None
+        self.file_encoding = None
+        QApplication.instance().main_window = self
 
                 # ניסיון לטעון את הגופן
         if not self.load_temp_font():
@@ -3413,18 +3453,31 @@ class MainMenu(QMainWindow):
         self.setWindowTitle("עריכת ספרי דיקטה עבור אוצריא")
         self.setLayoutDirection(Qt.RightToLeft)
         self.setWindowIcon(self.load_icon_from_base64(icon_base64))
-        self.setGeometry(100, 50, 1400, 800)
+        self.setGeometry(100, 50, 1700, 950)
         
         self.create_side_menu()
 
+
+
+        
+
         # יצירת תצוגת הטקסט
+        
         self.text_display = QTextBrowser() 
         self.text_display.setReadOnly(False)
         self.text_display.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.text_display.document().setDefaultTextOption(QTextOption(Qt.AlignmentFlag.AlignRight))
+
+
+        if self.current_file_path:
+            self.file_encoding = self.detect_file_encoding(self.current_file_path)
+            with open(self.current_file_path, 'r', encoding=self.file_encoding) as file:
+                self.last_content = file.read()
         
         self.text_display.textChanged.connect(self.on_text_changed)
-    
+        self.text_display.textChanged.connect(self.handle_direct_typing)
+        self.text_display.setUndoRedoEnabled(True)
+        
         base_font = QFont('"Frank Ruehl CLM","Segoe UI"', 18)
         self.text_display.setFont(base_font)
     
@@ -3505,8 +3558,7 @@ class MainMenu(QMainWindow):
         except Exception as e:
             print(f"שגיאה בטעינת הגופן: {str(e)}")
             return False
-        
-
+          
     def check_for_updates(self, silent=True):
         """
         בדיקת עדכונים חדשים
@@ -3536,7 +3588,13 @@ class MainMenu(QMainWindow):
             )
         self.status_label.setText("שגיאה בבדיקת עדכונים")
 
+
+
+
+    
+        
     def init_ui(self):
+        
         """אתחול ממשק המשתמש"""
         # יצירת מיכל ראשי
         main_container = QWidget()
@@ -3561,7 +3619,7 @@ class MainMenu(QMainWindow):
             ("1\nיצירת כותרות לאוצריא", self.open_create_headers_otzria),
             ("2\nיצירת כותרות לאותיות בודדות", self.open_create_single_letter_headers),
             ("3\nשינוי רמת כותרת", self.open_change_heading_level),
-            ("4\nהדגשת מילה ראשונה וניקוד בסוף קטע", self.open_emphasize_and_punctuate),
+            ("4\nטיפול בתחילת וסוף קטעים", self.open_emphasize_and_punctuate),
             ("5\nיצירת כותרות לעמוד ב", self.open_create_page_b_headers),
             ("6\nהחלפת כותרות לעמוד ב", self.open_replace_page_b_headers),
             ("7\nבדיקת שגיאות", self.open_check_heading_errors_original),
@@ -3602,7 +3660,7 @@ class MainMenu(QMainWindow):
         self.menu_button = QPushButton("☰")
         self.menu_button.setStyleSheet("""
             QPushButton {
-                font-size: 24px;
+                font-size: 30px;
                 padding: 5px;
                 background-color: transparent;
                 border: none;
@@ -3613,15 +3671,23 @@ class MainMenu(QMainWindow):
         """)
         self.menu_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.menu_button.clicked.connect(self.toggle_side_menu)
-        self.menu_button.setFixedSize(40, 40)
+        self.menu_button.setFixedSize(60, 60)
         self.menu_button.setToolTip("תפריט")
 
         # יצירת כפתורי פעולה
+        self.refresh_button = QPushButton("🔄")  # או "⟳"
+        self.refresh_button.setStyleSheet("font-weight: bold; font-size: 14pt; padding: 5px;")
+
+        self.refresh_button.setCursor(QCursor(Qt.PointingHandCursor))
+        self.refresh_button.clicked.connect(self.refresh_file)
+        self.refresh_button.setFixedSize(60, 60)
+        self.refresh_button.setToolTip("ריענון")
+        
         self.undo_button = QPushButton("⟲")
         self.undo_button.setStyleSheet("font-weight: bold; font-size: 14pt; padding: 5px;")
         self.undo_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.undo_button.clicked.connect(self.undo_action)
-        self.undo_button.setFixedSize(40, 40)
+        self.undo_button.setFixedSize(60, 60)
         self.undo_button.setToolTip("בטל")
         self.undo_button.setEnabled(False)
 
@@ -3629,7 +3695,7 @@ class MainMenu(QMainWindow):
         self.redo_button.setStyleSheet("font-weight: bold; font-size: 14pt; padding: 5px;")
         self.redo_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.redo_button.clicked.connect(self.redo_action)
-        self.redo_button.setFixedSize(40, 40)
+        self.redo_button.setFixedSize(60, 60)
         self.redo_button.setToolTip("חזור")
         self.redo_button.setEnabled(False)
 
@@ -3637,13 +3703,13 @@ class MainMenu(QMainWindow):
         self.save_button.setStyleSheet("font-weight: bold; font-size: 14pt; padding: 5px;")
         self.save_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.save_button.clicked.connect(self.save_file)
-        self.save_button.setFixedSize(40, 40)
+        self.save_button.setFixedSize(60, 60)
         self.save_button.setToolTip("שמור")
         self.save_button.setEnabled(False)
 
         # כפתור הוספת קובץ
         add_file_button = QPushButton("הוסף קובץ")
-        add_file_button.setFixedSize(120, 40)
+        add_file_button.setFixedSize(150, 60)
         add_file_button.setCursor(QCursor(Qt.PointingHandCursor))
         add_file_button.setStyleSheet("""
             QPushButton {
@@ -3662,7 +3728,7 @@ class MainMenu(QMainWindow):
 
         # כפתור עריכה בפנקס רשימות
         edit_in_notepad_button = QPushButton("ערוך בפנקס רשימות")
-        edit_in_notepad_button.setFixedSize(200, 40)
+        edit_in_notepad_button.setFixedSize(200, 60)
         edit_in_notepad_button.setCursor(QCursor(Qt.PointingHandCursor))
         edit_in_notepad_button.setStyleSheet("""
             QPushButton {
@@ -3683,7 +3749,7 @@ class MainMenu(QMainWindow):
         self.status_label = QLabel("לא בוצעו עדיין פעולות")
         self.status_label.setStyleSheet("""
             color: #666666;
-            font-size: 14px;
+            font-size: 24px;
             padding: 5px 15px;
             background-color: transparent;
             border-radius: 10px;
@@ -3702,6 +3768,7 @@ class MainMenu(QMainWindow):
         action_buttons_layout.addStretch(1)
         action_buttons_layout.addWidget(self.status_label)
         action_buttons_layout.addStretch(1)
+        action_buttons_layout.addWidget(self.refresh_button)
         action_buttons_layout.addWidget(self.undo_button)
         action_buttons_layout.addWidget(self.redo_button)
         action_buttons_layout.addWidget(self.save_button)
@@ -3717,6 +3784,17 @@ class MainMenu(QMainWindow):
         text_bottom_buttons = QHBoxLayout(editing_buttons_container)
         text_bottom_buttons.setSpacing(10)
         text_bottom_buttons.setContentsMargins(15, 10, 15, 10)
+
+
+        # הגדרת קיצורי מקלדת
+        undo_shortcut = QShortcut(QKeySequence.Undo, self)  # Ctrl+Z
+        undo_shortcut.activated.connect(self.undo_action)
+        
+        redo_shortcut = QShortcut(QKeySequence.Redo, self)  # Ctrl+Y או Ctrl+Shift+Z
+        redo_shortcut.activated.connect(self.redo_action)
+        
+        # הפעלת תכונת ביטול מובנית
+        self.text_display.setUndoRedoEnabled(True)
 
         # הגדרת כפתורי עריכה
         buttons_data = [
@@ -3742,11 +3820,10 @@ class MainMenu(QMainWindow):
                 color: #1a365d;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 7.5pt;
+                font-size: 12pt;
                 min-width: 20px;
                 min-height: 12px;
-                width: 12px;
-                height: 20px;
+
                 border: 1px solid #c2d3f0;
             }
             QPushButton:hover {
@@ -3767,7 +3844,7 @@ class MainMenu(QMainWindow):
                 color: #333333;
                 font-weight: bold;
                 font-family: "Segoe UI", Arial;
-                font-size: 7.5pt;
+                font-size: 12pt;
                 min-width: 60px;
                 min-height: 12px;
                 width: 60px;
@@ -3785,7 +3862,7 @@ class MainMenu(QMainWindow):
 
         # יצירת כפתור החיפוש
         search_button = QPushButton("חיפוש")
-        search_button.setFixedSize(100, 40)
+        search_button.setFixedSize(100, 60)
         search_button.setStyleSheet(search_button_style)
         search_button.setCursor(QCursor(Qt.PointingHandCursor))
         search_button.clicked.connect(self.open_find_replace)
@@ -3800,7 +3877,7 @@ class MainMenu(QMainWindow):
         # יצירת כפתורי העריכה
         for button_text, func in reversed(buttons_data):
             button = QPushButton(button_text)
-            button.setFixedSize(80, 40)
+            button.setFixedSize(80, 60)
             button.setStyleSheet(button_style)
             button.setCursor(QCursor(Qt.PointingHandCursor))
             button.clicked.connect(func)
@@ -3822,7 +3899,7 @@ class MainMenu(QMainWindow):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 12px;
+                font-size: 30px;
                 font-weight: bold;
                 padding: 2px;
                 margin: 0;
@@ -3864,19 +3941,19 @@ class MainMenu(QMainWindow):
         about_button.setStyleSheet("font-weight: bold; font-size: 12pt;")
         about_button.setCursor(QCursor(Qt.PointingHandCursor))
         about_button.clicked.connect(self.open_about_dialog)
-        about_button.setFixedSize(40, 40)
+        about_button.setFixedSize(60, 60)
         
         update_button = QPushButton("⭳")
         update_button.setStyleSheet("font-weight: bold; font-size: 14pt;")
         update_button.setCursor(QCursor(Qt.PointingHandCursor))
         update_button.clicked.connect(self.check_for_updates)
-        update_button.setFixedSize(40, 40)
+        update_button.setFixedSize(60, 60)
         update_button.setToolTip("עדכונים")
 
         self.edit_button = QPushButton("✍")
         self.edit_button.setStyleSheet("font-weight: bold; font-size: 14pt;")
         self.edit_button.setCursor(QCursor(Qt.PointingHandCursor))
-        self.edit_button.setFixedSize(40, 40)
+        self.edit_button.setFixedSize(60, 60)
         self.edit_button.setToolTip("עריכה")
         self.edit_button.clicked.connect(self.edit_text)
 
@@ -3896,8 +3973,58 @@ class MainMenu(QMainWindow):
         main_layout.addWidget(main_content)
 
         self.setCentralWidget(main_container)
+        
+        self.text_display.textChanged.connect(self.handle_direct_typing)
 
 
+
+    def detect_file_encoding(self, file_path):
+        """זיהוי קידוד הקובץ"""
+        try:
+            with open(file_path, 'rb') as file:
+                raw_data = file.read()
+                result = chardet.detect(raw_data)
+                return result['encoding']
+        except Exception as e:
+            print(f"שגיאה בזיהוי קידוד: {str(e)}")
+            return 'utf-8'  # ברירת מחדל
+
+
+    def convert_file_to_utf8(self, file_path):
+        """המרת קובץ ל-UTF-8 בלי לשנות את התוכן"""
+        try:
+            # קריאת הקובץ במצב בינארי
+            with open(file_path, 'rb') as file:
+                raw_bytes = file.read()
+
+            # זיהוי הקידוד המקורי
+            result = chardet.detect(raw_bytes)
+            original_encoding = result['encoding'] if result['encoding'] else 'utf-8'
+
+            if original_encoding.lower() != 'utf-8':
+                # המרה בינארית - מהקידוד המקורי ל-UTF-8
+                content_str = raw_bytes.decode(original_encoding, errors='replace')
+                utf8_bytes = content_str.encode('utf-8')
+
+                # שמירה במצב בינארי
+                with open(file_path, 'wb') as file:
+                    file.write(utf8_bytes)
+
+                print(f"הקובץ הומר מ-{original_encoding} ל-UTF-8")
+                return True
+
+        except Exception as e:
+            print(f"שגיאה בהמרה ל-UTF-8: {str(e)}")
+            return False
+    
+    def prepare_file_for_editing(self, file_path):
+        """הכנת הקובץ לעריכה"""
+        if self.convert_file_to_utf8(file_path):
+            self.file_encoding = 'utf-8'
+            return True
+        return False
+            
+        
 
     def create_side_menu(self):
         """יצירת תפריט הצד לניווט בכותרות"""
@@ -3908,7 +4035,7 @@ class MainMenu(QMainWindow):
         layout = QVBoxLayout()
         layout.setContentsMargins(20, 20, 20, 20)
         
-        title_label = QLabel("ניווט במסמך")
+        title_label = QLabel("נווט")
         title_label.setLayoutDirection(Qt.RightToLeft)
         
         text_option = QTextOption()
@@ -3920,7 +4047,7 @@ class MainMenu(QMainWindow):
         title_label.setStyleSheet("""
             QLabel {
                 font-family: "Segoe UI", Arial;
-                font-size: 16px;
+                font-size: 30px;
                 font-weight: bold;
                 color: #333333;
                 padding: 5px 20px 5px 0px;  /* top, right, bottom, left */
@@ -3996,7 +4123,7 @@ class MainMenu(QMainWindow):
 
     def update_navigation_menu(self):
         """עדכון תפריט הניווט פעם אחת בלבד"""
-        if self.navigation_updated:  
+        if self.navigation_updated or self.navigation_loader is not None:  
             return
             
         try:
@@ -4024,7 +4151,7 @@ class MainMenu(QMainWindow):
                 button = QPushButton(header['text'])
                 button.setStyleSheet(f"""
                     QPushButton {{
-                        font-size: {18 - header['level']}px;
+                        font-size: {24 - header['level']}px;
                         font-weight: {700 if header['level'] <= 2 else 400};
                         color: #1a365d;
                         padding-right: {(header['level']-1) * 20}px;
@@ -4041,6 +4168,7 @@ class MainMenu(QMainWindow):
             # הוספת מרווח בסוף
             self.headers_layout.addStretch()
             self.navigation_updated = True  # סימון שהניווט עודכן
+            self.navigation_loader = None  # איפוס ה-loader
 
         except Exception as e:
             print(f"שגיאה בטיפול בתוצאות הניווט: {str(e)}")
@@ -4074,27 +4202,32 @@ class MainMenu(QMainWindow):
             with open(self.current_file_path, 'r', encoding='utf-8') as file:
                 content = file.read()
             
-            # חיפוש תגיות קיימות בטקסט המסומן
             import re
-            tag_pattern = r'<[^>]+>(.*?)</[^>]+>'
             
-            # מחפש את הטקסט המסומן עם או בלי תגיות
-            full_pattern = f'<[^>]+>{re.escape(selected_text)}</[^>]+>|{re.escape(selected_text)}'
-            match = re.search(full_pattern, content)
+            # חיפוש הטקסט המסומן עם או בלי תגיות HTML
+            pattern = f'<h[1-6]>{re.escape(selected_text)}</h[1-6]>|<[bi]>{re.escape(selected_text)}</[bi]>|<span[^>]*>{re.escape(selected_text)}</span>|{re.escape(selected_text)}'
+            match = re.search(pattern, content)
             
             if match:
-                old_text = match.group(0)  # הטקסט המקורי (עם או בלי תגיות)
+                old_text = match.group(0)  # הטקסט המקורי שנמצא
                 
-                # יצירת הטקסט החדש עם התגית החדשה
-                if tag_name.startswith('span'):
+                # יצירת הטקסט החדש בהתאם לסוג התג
+                if tag_name == "remove":
+                    new_text = selected_text  # הסרת עיצוב - השארת הטקסט בלבד
+                elif tag_name.startswith('span style="font-size:'):
+                    # טיפול בתגיות span עם גודל
                     new_text = f'<{tag_name}>{selected_text}</span>'
+                elif tag_name.startswith('h'):
+                    # טיפול בכותרות
+                    new_text = f'<{tag_name}>{selected_text}</{tag_name}>'
                 else:
+                    # טיפול בתגיות רגילות (b, i וכו')
                     new_text = f'<{tag_name}>{selected_text}</{tag_name}>'
                 
                 # החלפת הטקסט הישן בחדש
                 new_content = content.replace(old_text, new_text)
                 
-                # שמירה ישירה לקובץ
+                # שמירה לקובץ
                 with open(self.current_file_path, 'w', encoding='utf-8') as file:
                     file.write(new_content)
                 
@@ -4102,61 +4235,39 @@ class MainMenu(QMainWindow):
                 self.text_display.setHtml(new_content)
                 
                 # עדכון היסטוריה
-                self._safe_update_history(new_content, f"החלפת עיצוב ל-{tag_name}")
-                
+                if tag_name == "remove":
+                    action_description = "הסרת עיצוב"
+                elif tag_name.startswith('span style="font-size:'):
+                    action_description = "שינוי גודל טקסט"
+                else:
+                    action_description = f"החלפת עיצוב ל-{tag_name}"
+                    
+                self._safe_update_history(new_content, action_description)
+            
         except Exception as e:
-            QMessageBox.critical(self, "שגיאה", f"שגיאה בהוספת תג: {str(e)}")
-
-
+            QMessageBox.critical(self, "שגיאה", f"שגיאה בעדכון התגית: {str(e)}")
+            
     def remove_formatting(self):
         """הסרת עיצוב מהטקסט המסומן"""
         cursor = self.text_display.textCursor()
         if cursor.hasSelection():
             selected_text = cursor.selectedText()
-            try:
-                # קריאת תוכן הקובץ
-                with open(self.current_file_path, 'r', encoding='utf-8') as file:
-                    content = file.read()
-                
-                # חיפוש תגיות בטקסט המסומן
-                import re
-                tag_pattern = r'<[^>]+>(.*?)</[^>]+>'
-                
-                # מחפש את הטקסט המסומן עם התגיות שלו
-                full_pattern = f'<[^>]+>{re.escape(selected_text)}</[^>]+>'
-                match = re.search(full_pattern, content)
-                
-                if match:
-                    # מחליף את הטקסט עם התגיות בטקסט נקי
-                    new_content = content.replace(match.group(0), selected_text)
-                    
-                    # שמירה לקובץ
-                    with open(self.current_file_path, 'w', encoding='utf-8') as file:
-                        file.write(new_content)
-                    
-                    # עדכון התצוגה
-                    self.text_display.setHtml(new_content)
-                    
-                    # עדכון היסטוריה
-                    self._safe_update_history(new_content, "הסרת עיצוב")
-                
-            except Exception as e:
-                QMessageBox.critical(self, "שגיאה", f"שגיאה בהסרת עיצוב: {str(e)}")
+            self.apply_tag_to_file("remove", selected_text)
                 
     def button1_function(self):
         """הקטנת הטקסט המסומן"""
         cursor = self.text_display.textCursor()
         if cursor.hasSelection():
             selected_text = cursor.selectedText()
-            self.apply_tag_to_file('span style="font-size: smaller;"', selected_text)
+            self.apply_tag_to_file('span style="font-size:70%;"', selected_text)
 
     def button2_function(self):
         """הגדלת הטקסט המסומן"""
         cursor = self.text_display.textCursor()
         if cursor.hasSelection():
             selected_text = cursor.selectedText()
-            self.apply_tag_to_file('span style="font-size: larger;"', selected_text)
-
+            self.apply_tag_to_file('span style="font-size:150%;"', selected_text)
+            
     def button3_function(self):
         """הפיכת הטקסט לנטוי"""
         cursor = self.text_display.textCursor()
@@ -4212,7 +4323,27 @@ class MainMenu(QMainWindow):
         if cursor.hasSelection():
             selected_text = cursor.selectedText()
             self.apply_tag_to_file('h1', selected_text)
+
+
+
+    def update_cursor_position(self):
+        """עדכון מיקום הסמן הנוכחי"""
+        cursor = self.text_display.textCursor()
+        self.last_cursor_position = cursor.position()
     
+    def handle_direct_typing(self):
+        """כתיבה ישירה לקובץ בזמן הקלדה"""
+        if not self.text_display.isReadOnly() and self.current_file_path:
+            try:
+                current_text = self.text_display.toPlainText()
+                
+                # כתיבה ישירה ב-UTF-8
+                with open(self.current_file_path, 'w', encoding='utf-8') as file:
+                    file.write(current_text)
+                    
+            except Exception as e:
+                print(f"שגיאה בכתיבה לקובץ: {str(e)}")
+                
     def _safe_update_history(self, content, description):
         """שמירת מצב בהיסטוריה"""
         try:
@@ -4232,78 +4363,8 @@ class MainMenu(QMainWindow):
             print(f"שגיאה בעדכון ההיסטוריה: {str(e)}")
 
 
- #---------------------------------------           
-    def install_specific_font(self):
-        """מתקין גופן ספציפי מתיקיית NetFree גם אם הקובץ קיים אבל לא מותקן"""
-        try:
-            netfree_dir = r"C:\ProgramData\NetFree\CA"
-            
-            def is_font_registered(font_name):
-                """בודק אם הגופן רשום במערכת"""
-                try:
-                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
-                                      r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts",
-                                      0, winreg.KEY_READ) as key:
-                        # מנסה למצוא את הגופן ברשומות
-                        for i in range(winreg.QueryInfoKey(key)[1]):
-                            try:
-                                name, value, _ = winreg.EnumValue(key, i)
-                                if font_name.lower() in name.lower():
-                                    return True
-                            except:
-                                continue
-                    return False
-                except:
-                    return False
-
-            # חיפוש קבצי גופן בתיקייה
-            for file in os.listdir(netfree_dir):
-                if file.lower().endswith(('.ttf', '.otf')):
-                    font_path = os.path.join(netfree_dir, file)
-                    font_name = os.path.splitext(file)[0]
-                    
-                    # בודק אם הגופן רשום במערכת
-                    if not is_font_registered(font_name):
-                        try:
-                            # תיקיית הגופנים של Windows
-                            windows_font_dir = os.path.join(os.environ['WINDIR'], 'Fonts')
-                            destination = os.path.join(windows_font_dir, file)
-
-                            # העתקת הגופן אם צריך
-                            if not os.path.exists(destination):
-                                shutil.copy2(font_path, destination)
-
-                            # עדכון הרשומות
-                            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
-                                              r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts",
-                                              0, winreg.KEY_SET_VALUE) as key:
-                                if file.lower().endswith('.ttf'):
-                                    reg_name = f"{font_name} (TrueType)"
-                                else:
-                                    reg_name = f"{font_name} (OpenType)"
-                                winreg.SetValueEx(key, reg_name, 0, winreg.REG_SZ, file)
-
-                            # רענון מערכת הגופנים
-                            ctypes.windll.user32.SendMessageTimeoutW(0xFFFF, 0x001D, 0, 0, 0, 1000, None)
-                            print(f"הגופן {font_name} הותקן בהצלחה")
-                            return True
-
-                        except Exception as e:
-                            print(f"שגיאה בהתקנת הגופן {file}: {str(e)}")
-                            continue
-                    else:
-                        print(f"הגופן {font_name} כבר מותקן במערכת")
-
-            print("לא נמצאו גופנים חדשים להתקנה")
-            return False
-
-        except Exception as e:
-            print(f"שגיאה כללית: {str(e)}")
-            return False
-          
 
 #---------------------חיפוש והחלפה----------------
-      
     def open_find_replace(self):
         """פתיחת חלונית חיפוש והחלפה משופרת"""
         if not self.text_display.isReadOnly():
@@ -4436,13 +4497,13 @@ class MainMenu(QMainWindow):
             
             replace_label = QLabel("החלף ב:")
             replace_label.setStyleSheet(label_style)
-            self.replace_text = QLineEdit()
-            self.replace_text.setStyleSheet(input_style)
+            self.replace_input = QLineEdit()
+            self.replace_input.setStyleSheet(input_style)
 
             layout.addWidget(search_label)
             layout.addWidget(self.search_text)
             layout.addWidget(replace_label)
-            layout.addWidget(self.replace_text)
+            layout.addWidget(self.replace_input)
 
             # אפשרויות חיפוש
             options_group = QGroupBox("אפשרויות חיפוש")
@@ -4469,10 +4530,6 @@ class MainMenu(QMainWindow):
             self.whole_words = QCheckBox("מילים שלמות בלבד")
             self.use_regex = QCheckBox("חיפוש עם ביטויים רגולריים")
             self.include_special = QCheckBox("כולל תווים מיוחדים (\\n, \\t)")
-            self.case_sensitive = QCheckBox("התאמת רישיות (אותיות גדולות/קטנות)")
-            self.whole_words = QCheckBox("מילים שלמות בלבד")
-            self.include_special = QCheckBox("חיפוש תווים מיוחדים (\\n = ירידת שורה, \\t = טאב)")
-            self.use_regex = QCheckBox("חיפוש מתקדם (לא מומלץ)")
             
             for checkbox in [self.case_sensitive, self.whole_words, self.use_regex, self.include_special]:
                 checkbox.setStyleSheet(checkbox_style)
@@ -4498,7 +4555,7 @@ class MainMenu(QMainWindow):
             # חיבור אירועים
             find_next_btn.clicked.connect(lambda: self.find_text(True))
             find_prev_btn.clicked.connect(lambda: self.find_text(False))
-            replace_btn.clicked.connect(self.replace_current)
+            replace_btn.clicked.connect(self.replace_text)
             replace_all_btn.clicked.connect(self.replace_all)
             
             # מקש Enter לחיפוש
@@ -4520,160 +4577,166 @@ class MainMenu(QMainWindow):
         if not text:
             return
 
-        # המרת תווים מיוחדים
+        # ניקוי הדגשות קודמות
+        self.text_display.setExtraSelections([])
+        
+        # קבלת הטקסט המלא
+        content = self.text_display.toPlainText()
         search_text = text
+        
+        # המרת תווים מיוחדים
         if self.include_special.isChecked():
-            special_chars = {
-                "\\n": "\n",  # ירידת שורה
-                "\\t": "\t",  # טאב
-                "\\s": " ",   # רווח
-            }
-            for char_repr, actual_char in special_chars.items():
-                search_text = search_text.replace(char_repr, actual_char)
-
-        # הגדרת אפשרויות חיפוש
-        flags = QTextDocument.FindFlags()
-        if not forward:
-            flags |= QTextDocument.FindBackward
-        if self.case_sensitive.isChecked():
-            flags |= QTextDocument.FindCaseSensitively
-        if self.whole_words.isChecked():
-            flags |= QTextDocument.FindWholeWords
-
-        # שמירת המיקום הנוכחי
-        cursor = self.text_display.textCursor()
-        start_position = cursor.position()
-
-        # חיפוש
-        found = False
+            search_text = text.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
+        
+        # התאמה לתנאי החיפוש
+        if not self.case_sensitive.isChecked():
+            content = content.lower()
+            search_text = search_text.lower()
+        
+        # חיפוש רגיל או regex
         if self.use_regex.isChecked():
             try:
-                regex = QRegExp(search_text)
-                regex.setPatternSyntax(QRegExp.RegExp)  # שימוש בתחביר רגיל
-                if not self.case_sensitive.isChecked():
-                    regex.setCaseSensitivity(Qt.CaseInsensitive)
-                found = self.text_display.find(regex, flags)
-            except Exception as e:
-                QMessageBox.warning(self, "שגיאה", f"ביטוי רגולרי לא תקין: {str(e)}")
+                import re
+                if forward:
+                    matches = list(re.finditer(search_text, content))
+                    pos = -1
+                    for match in matches:
+                        if match.start() > self.text_display.textCursor().position():
+                            pos = match.start()
+                            length = len(match.group())
+                            break
+                    if pos == -1 and matches:  # אם לא נמצא אחרי המיקום הנוכחי, נחזור להתחלה
+                        pos = matches[0].start()
+                        length = len(matches[0].group())
+                else:
+                    matches = list(re.finditer(search_text, content[:self.text_display.textCursor().position()]))
+                    if matches:
+                        pos = matches[-1].start()
+                        length = len(matches[-1].group())
+                    else:
+                        pos = -1
+            except re.error:
+                QMessageBox.warning(self, "שגיאה", "ביטוי רגולרי לא תקין")
                 return False
         else:
-            found = self.text_display.find(search_text, flags)
+            # חיפוש רגיל
+            if forward:
+                pos = content.find(search_text, self.text_display.textCursor().position())
+                if pos == -1:  # אם לא נמצא, מנסה מההתחלה
+                    pos = content.find(search_text, 0)
+            else:
+                text_before = content[:self.text_display.textCursor().position()]
+                pos = text_before.rfind(search_text)
+            length = len(search_text)
 
-        # הוספת הדגשה חזקה יותר למציאה
-        if found:
-            # שינוי צבע הרקע וצבע הטקסט של הבחירה
+        if pos != -1:
             cursor = self.text_display.textCursor()
-            selection = QTextCharFormat()
-            selection.setBackground(QColor("#FFD700"))  # צבע רקע צהוב בולט
-            selection.setForeground(QColor("#000000"))  # טקסט שחור
-            selection.setFontWeight(QFont.Bold)         # טקסט מודגש
+            cursor.setPosition(pos)
+            cursor.setPosition(pos + length, QTextCursor.KeepAnchor)
+            self.text_display.setTextCursor(cursor)
             
-            # שמירת העיצוב הקודם
-            old_format = cursor.charFormat()
-            
-            # החלת העיצוב החדש
-            cursor.mergeCharFormat(selection)
-            
+            # הדגשה
+            extra = QTextEdit.ExtraSelection()
+            extra.format.setBackground(QColor("#FFD700"))
+            extra.format.setForeground(QColor("#000000"))
+            extra.cursor = cursor
+            self.text_display.setExtraSelections([extra])
             return True
-
-        # אם לא נמצא, ננסה מההתחלה
-        cursor.movePosition(QTextCursor.Start)
-        self.text_display.setTextCursor(cursor)
-        
-        if self.use_regex.isChecked():
-            found = self.text_display.find(regex, flags)
         else:
-            found = self.text_display.find(search_text, flags)
+            QMessageBox.information(self, "חיפוש", "הטקסט לא נמצא")
+            return False
 
-        if found:
-            # הדגשה גם אם נמצא בניסיון השני
-            cursor = self.text_display.textCursor()
-            selection = QTextCharFormat()
-            selection.setBackground(QColor("#FFD700"))
-            selection.setForeground(QColor("#000000"))
-            selection.setFontWeight(QFont.Bold)
-            cursor.mergeCharFormat(selection)
-            return True
-
-        # אם לא נמצא, חזרה למיקום המקורי
-        cursor.setPosition(start_position)
-        self.text_display.setTextCursor(cursor)
-        QMessageBox.information(self, "חיפוש", "הטקסט לא נמצא")
-        return False
-
-    def replace_current(self):
-        """החלפת הטקסט המסומן הנוכחי"""
+    def replace_text(self):
+        """החלפת הטקסט המסומן בטקסט חדש"""
+        if not self.search_text.text():
+            return
+            
+        replace_with = self.replace_input.text()
         cursor = self.text_display.textCursor()
+        
         if cursor.hasSelection():
-            cursor.insertText(self.replace_text.text())
-            self._safe_update_history(self.text_display.toHtml(), "החלפת טקסט")
-        self.find_text(True)
+            cursor.insertText(replace_with)
+            self.find_text()  # חיפוש הבא
+        else:
+            if self.find_text():
+                cursor = self.text_display.textCursor()
+                cursor.insertText(replace_with)
+                self.find_text()  # חיפוש הבא
 
     def replace_all(self):
         """החלפת כל המופעים של הטקסט"""
-        text = self.search_text.text()
-        new_text = self.replace_text.text()
-        if not text:
+        if not self.search_text.text():
             return
-
-        cursor = self.text_display.textCursor()
-        cursor.beginEditBlock()
+            
+        search_text = self.search_text.text()
+        replace_with = self.replace_input.text()
+        content = self.text_display.toPlainText()
         
-        # שמירת המיקום הנוכחי
-        original_position = cursor.position()
-        cursor.movePosition(QTextCursor.Start)
-        self.text_display.setTextCursor(cursor)
+        if self.include_special.isChecked():
+            search_text = search_text.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
+            replace_with = replace_with.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
         
-        count = 0
-        flags = QTextDocument.FindFlags()
-        if self.case_sensitive.isChecked():
-            flags |= QTextDocument.FindCaseSensitively
-        if self.whole_words.isChecked():
-            flags |= QTextDocument.FindWholeWords
-
-        while True:
-            if self.use_regex.isChecked():
-                found = self.text_display.find(QRegExp(text), flags)
-            else:
-                found = self.text_display.find(text, flags)
-                
-            if not found:
-                break
-                
-            cursor = self.text_display.textCursor()
-            cursor.insertText(new_text)
-            count += 1
-        
-        cursor.endEditBlock()
-        
-        if count > 0:
-            self._safe_update_history(
-                self.text_display.toHtml(), 
-                f"החלפת {count} מופעים"
-            )
-            QMessageBox.information(self, "החלפה", f"הוחלפו {count} מופעים")
+        if not self.case_sensitive.isChecked():
+            import re
+            content = re.sub(re.escape(search_text), replace_with, content, flags=re.IGNORECASE)
         else:
-            QMessageBox.information(self, "החלפה", "לא נמצאו מופעים להחלפה")            
-        
+            content = content.replace(search_text, replace_with)
+            
+        self.text_display.setPlainText(content)
 
+
+    def refresh_file(self):
+        """ריענון הקובץ הנוכחי"""
+        try:
+            if not self.current_file_path:
+                return
+                
+            # שמירת המיקום הנוכחי של הסמן
+            cursor = self.text_display.textCursor()
+            current_position = cursor.position()
+            
+            # טעינה מחדש של הקובץ
+            with open(self.current_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+            
+            # עדכון התצוגה
+            self.text_display.setHtml(content)
+            
+            # החזרת הסמן למיקום הקודם
+            cursor = self.text_display.textCursor()
+            cursor.setPosition(current_position)
+            self.text_display.setTextCursor(cursor)
+            
+            # עדכון תפריט הניווט
+            self.navigation_updated = False
+            self.update_navigation_menu()
+            
+            self.status_label.setText("הקובץ רוענן בהצלחה")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "שגיאה", f"שגיאה בריענון הקובץ: {str(e)}")        
+        
     def load_file(self, file_path):
         try:
+            # קריאה רגילה של הקובץ - בלי המרות
             with open(file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
+                raw_content = file.read()
 
-
-              # עדכון שם הקובץ בתווית
+            # עדכון שם הקובץ בתווית
             file_name = os.path.basename(file_path)
             file_name = file_name.rsplit('.', 1)[0]
-            self.file_name_label.setText(f"קובץ נוכחי: {file_name}")
             self.file_name_label.setText(f"{file_name}")
             self.file_name_label.show()          
             
-            # פשוט להציג את התוכן כ-HTML
-            self.text_display.setHtml(content)
+            # שומרים את התוכן המקורי בשדה חדש
+            self.original_content = raw_content
+            
+            # הצגת התוכן בתצוגה
+            self.text_display.setHtml(self.original_content)
             self.current_file_path = file_path
             
-            self.document_history = [(content, "מצב התחלתי")]
+            # שמירת התוכן המקורי להיסטוריה
+            self.document_history = [(self.original_content, "מצב התחלתי")]
             self.current_index = 0
             
             self.navigation_updated = False
@@ -4710,10 +4773,14 @@ class MainMenu(QMainWindow):
             # הצגה כ-HTML לתצוגה מעוצבת
             self.text_display.setHtml(content)
             
-            if self.last_processor_title:
+            # עדכון הסטטוס בהתאם לחלון האחרון שהיה פעיל
+            if hasattr(self, 'last_processor_title') and self.last_processor_title:
                 action_description = self._get_action_description(self.last_processor_title)
-                self._safe_update_history(content, action_description)
                 self.status_label.setText(action_description)
+                self._safe_update_history(content, action_description)
+            
+                # ניקוי שם החלון האחרון כדי למנוע כפילויות
+                self.last_processor_title = None
                 
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"שגיאה בעדכון התצוגה: {str(e)}")
@@ -4764,22 +4831,26 @@ class MainMenu(QMainWindow):
 
 
     def on_text_changed(self):
-        if not self.text_display.isReadOnly():
+        """מטפל בשינויי טקסט - משתמש בפונקציית השמירה הקיימת"""
+        if not self.text_display.isReadOnly() and self.current_file_path:
             try:
-            # בדיקה שיש היסטוריה והאינדקס תקין
-                if (self.document_history and 
-                    0 <= self.current_index < len(self.document_history)):                
-                    current_content = self.document_history[self.current_index][0]
-                    self._safe_update_history(current_content, "עריכה ידנית")
-                    self.update_buttons_state()
-                else:
-                    # אם אין היסטוריה, נשמור את התוכן הנוכחי
-                    current_content = self.text_display.toHtml()
-                    self._safe_update_history(current_content, "עריכה ראשונית")
-                    self.update_buttons_state()
-        
+                # שימוש בפונקציית השמירה הקיימת
+                self.save_file()
+            
             except Exception as e:
-                print(f"שגיאה בעדכון הטקסט: {str(e)}")
+                print(f"שגיאה בשמירת הקובץ: {str(e)}")
+    
+    def keyPressEvent(self, event):
+        """טיפול באירועי מקלדת"""
+        if event.matches(QKeySequence.Undo):
+            self.undo_action()
+            event.accept()
+        elif event.matches(QKeySequence.Redo):
+            self.redo_action()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
+                
                 
     def process_text(self, processor_widget):
         if not self.current_file_path:
@@ -4824,23 +4895,6 @@ class MainMenu(QMainWindow):
             QMessageBox.critical(self, "שגיאה", f"שגיאה בהשלמת העיבוד: {str(e)}")
             self.status_label.setText("שגיאה בעיבוד")
 
-    def _get_action_description(self, window_title):
-        descriptions = {
-            "יצירת כותרות לאוצריא": "בוצעה יצירת כותרות בפורמט אוצריא",
-            "יצירת כותרות לאותיות בודדות": "בוצעה יצירת כותרות לאותיות בודדות",
-            "הוספת מספר עמוד בכותרת": "נוספו מספרי עמודים בכותרות",
-            "שינוי רמת כותרת": "בוצע שינוי ברמת הכותרות",
-            "הדגשת מילה ראשונה וניקוד": "בוצעה הדגשת מילים ראשונות והוספת ניקוד",
-            "יצירת כותרות לעמוד ב": "נוצרו כותרות לעמוד ב",
-            "החלפת כותרות לעמוד ב": "הוחלפו כותרות בעמוד ב",
-            "בדיקת שגיאות בכותרות": "בוצעה בדיקת שגיאות בכותרות",
-            "בדיקת שגיאות לש\"ס": "בוצעה בדיקת שגיאות מותאמת לש\"ס",
-            "המרת תמונה לטקסט": "בוצעה המרת תמונה לטקסט",
-            "תיקון שגיאות נפוצות": "בוצע תיקון שגיאות נפוצות",
-            "נקודותיים ורווח": "בוצע תיקון נקודותיים ורווחים"
-        }
-        return descriptions.get(window_title, f"בוצע עיבוד: {window_title}")
-
 
 
     def undo_action(self):
@@ -4848,14 +4902,16 @@ class MainMenu(QMainWindow):
         try:
             if self.current_index > 0:
                 self.current_index -= 1
-                content, description = self.document_history[self.current_index]
+                content = self.document_history[self.current_index][0] 
 
-                display_content = content.replace('\n', '<br>\n')
-                self.text_display.setHtml(display_content)
+                #display_content = content.replace('\n', '<br>\n')
+                #self.text_display.setHtml(display_content)
+
+                #self.status_label.setText(f"בוטל: {original_status}")
 
                 with open(self.current_file_path, 'w', encoding='utf-8') as file:
                     file.write(content)
-                self.status_label.setText(f"בוטל: {description}")
+                update_global_status("בוצע ביטול פעולה")
                 self.update_buttons_state()
                 
         except Exception as e:
@@ -4866,13 +4922,14 @@ class MainMenu(QMainWindow):
             if self.current_index < len(self.document_history) - 1:
                 self.current_index += 1
                 content, description = self.document_history[self.current_index]
-                display_content = content.replace('\n', '<br>\n')
-                self.text_display.setHtml(display_content)
-
+                #display_content = content.replace('\n', '<br>\n')
+                #self.text_display.setHtml(display_content)
+                
+                self.status_label.setText(f"שוחזר:  {original_status}")
                 with open(self.current_file_path, 'w', encoding='utf-8') as file:
                     file.write(content)
                 
-                self.status_label.setText(description)
+                #self.status_label.setText(description)
                 self.update_buttons_state()
                 
         except Exception as e:
@@ -4943,24 +5000,7 @@ class MainMenu(QMainWindow):
             QMessageBox.critical(self, "שגיאה", f"שגיאה בשמירת הקובץ: {str(e)}")
 
 
-            
-    def _get_action_description(self, window_title):
-        """קבלת תיאור מפורט של הפעולה לפי שם החלון"""
-        descriptions = {
-            "יצירת כותרות לאוצריא": "בוצעה יצירת כותרות בפורמט אוצריא",
-            "יצירת כותרות לאותיות בודדות": "בוצעה יצירת כותרות לאותיות בודדות",
-            "הוספת מספר עמוד בכותרת": "נוספו מספרי עמודים בכותרות",
-            "שינוי רמת כותרת": "בוצע שינוי ברמת הכותרות",
-            "הדגשת מילה ראשונה וניקוד": "בוצעה הדגשת מילים ראשונות והוספת ניקוד",
-            "יצירת כותרות לעמוד ב": "נוצרו כותרות לעמוד ב",
-            "החלפת כותרות לעמוד ב": "הוחלפו כותרות בעמוד ב",
-            "בדיקת שגיאות בכותרות": "בוצעה בדיקת שגיאות בכותרות",
-            "בדיקת שגיאות לש\"ס": "בוצעה בדיקת שגיאות מותאמת לש\"ס",
-            "המרת תמונה לטקסט": "בוצעה המרת תמונה לטקסט",
-            "תיקון שגיאות נפוצות": "בוצע תיקון שגיאות נפוצות",
-            "נקודותיים ורווח": "בוצע תיקון נקודותיים ורווחים",
-        }
-        return descriptions.get(window_title, f"בוצע עיבוד: {window_title}")
+
    
     def update_content_from_child(self):
         """עדכון התצוגה לאחר שינויים בחלונות המשנה"""
@@ -4972,10 +5012,14 @@ class MainMenu(QMainWindow):
                 content = file.read()
             
             # המרת ירידות שורה לתצוגה
-            display_content = content.replace('\n', '<br>\n')
-            self.text_display.setHtml(display_content)
+            #display_content = content.replace('\n', '<br>\n')
+            #self.text_display.setHtml(display_content)
 
-            action_description = self._get_action_description(self.last_processor_title)
+            action_description = self.last_processor_title if self.last_processor_title else "עדכון תוכן"
+        
+            # עדכון ההיסטוריה עם התוכן והתיאור המקורי
+            self._safe_update_history(content, action_description)
+            
             # עדכון ההיסטוריה עם התוכן המקורי (ללא HTML)
             self._safe_update_history(content, action_description)
 
@@ -5342,7 +5386,7 @@ class AboutDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("אודות התוכנה")
         self.setLayoutDirection(Qt.RightToLeft)
-        self.setFixedWidth(600)
+        self.setFixedWidth(800)
         self.setStyleSheet("""
             QDialog {
                 background-color: white;
@@ -5360,7 +5404,7 @@ class AboutDialog(QDialog):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 24px;
+                font-size: 32px;
                 font-weight: bold;
             }
         """)
@@ -5375,7 +5419,7 @@ class AboutDialog(QDialog):
             QLabel {
                 color: #2b4c7e;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 20px;
                 font-weight: bold;
             }
         """)
@@ -5393,7 +5437,7 @@ class AboutDialog(QDialog):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 18px;
                 margin: 10px 0;
             }
         """)
@@ -5405,7 +5449,7 @@ class AboutDialog(QDialog):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 18px;
                 padding: 5px;
             }
             QLabel a {
@@ -5444,7 +5488,7 @@ class AboutDialog(QDialog):
             QLabel {
                 color: #1a365d;
                 font-family: "Segoe UI", Arial;
-                font-size: 14px;
+                font-size: 18px;
                 margin: 15px 0 5px 0;
             }
         """)
@@ -5457,7 +5501,7 @@ class AboutDialog(QDialog):
             QLabel {
                 color: #2b4c7e;
                 font-family: "Segoe UI", Arial;
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: bold;
             }
             QLabel a {
@@ -5636,16 +5680,16 @@ class UpdateChecker(QThread):
             print(f"SSL Error details: {error_message}")
             
             help_message = f"""
-שגיאת SSL בתקשורת עם שרת GitHub. 
-נא לבצע את הפעולות הבאות:
+              שגיאת SSL בתקשורת עם שרת GitHub. 
+              נא לבצע את הפעולות הבאות:
 
-1. הורד את תעודת נטפרי מהאתר הרשמי
-2. העתק את התעודה לנתיב הבא:
-   {self.netfree_cert}
-3. הפעל מחדש את התוכנה
+              1. הורד את תעודת נטפרי מהאתר הרשמי
+              2. העתק את התעודה לנתיב הבא:
+                {self.netfree_cert}
+              3. הפעל מחדש את התוכנה
 
-הערה: התעודה תישמר בנתיב קבוע ואין צורך להעתיק אותה שוב בעתיד.
-"""
+             הערה: התעודה תישמר בנתיב קבוע ואין צורך להעתיק אותה שוב בעתיד.
+            """
             self.error.emit(help_message)
                 
         except requests.exceptions.ConnectionError as e:

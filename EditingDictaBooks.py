@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QCheckBox, QTextEdit, QDialog, QFrame, QSplitter, QGridLayout, QSpacerItem, QSizePolicy, QApplication
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon, QPixmap, QCursor, QColor, QPalette, QTextDocument, QFont, QTextOption, QTextCursor,  QTextCharFormat
+from PyQt5.QtGui import QIcon, QPixmap, QCursor, QColor, QPalette, QTextDocument, QFont, QTextOption, QTextCursor,  QTextCharFormat, QFontDatabase
 from PyQt5.QtWinExtras import QtWin 
 from PyQt5.QtWidgets import QProxyStyle, QMessageBox, QTreeWidget
 from PyQt5.QtCore import pyqtSignal, QThread, pyqtSignal, QTimer, QPropertyAnimation, QEasingCurve, QRegExp
@@ -39,9 +39,6 @@ if __name__ == "__main__":
      QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
      app = QApplication(sys.argv)
 
-#if not ctypes.windll.shell32.IsUserAnAdmin():
-#   ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-#   sys.exit()
     
  #פונקצייה גלובלית לטיפול בשגיאות
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -3397,18 +3394,20 @@ class MainMenu(QMainWindow):
         self.current_content = "" 
         self.last_processor_title = ""
         self.current_version = "3.0.0"
+        self.navigation_updated = False
+        self.text_display = QTextBrowser()
 
-        # התקנת הגופנים
-        try:
-            success = self.install_specific_font()
-            if success:
-               print("הגופנים הותקנו בהצלחה")
-            else:
-                print("לא היה צורך בהתקנת גופנים או שההתקנה נכשלה")
-        except Exception as e:
-           print(f"שגיאה בהתקנת הגופנים: {str(e)}")
-           QMessageBox.critical(self, "שגיאה", f"שגיאה בהתקנת הגופנים: {str(e)}")
-        
+                # ניסיון לטעון את הגופן
+        if not self.load_temp_font():
+            # אם נכשל, שימוש בגופן חלופי
+            fallback_style = """
+                QTextBrowser {
+                    font-family: "David CLM", "Times New Roman", Arial;
+                    font-size: 18px;
+                }
+            """
+            self.text_display.setStyleSheet(fallback_style)
+
         
         # הגדרת החלון
         self.setWindowTitle("עריכת ספרי דיקטה עבור אוצריא")
@@ -3478,7 +3477,35 @@ class MainMenu(QMainWindow):
             QtWin.setCurrentProcessExplicitAppUserModelID(myappid)
 
         # בדיקת עדכונים אוטומטית בהפעלה
-        QTimer.singleShot(3000, self.check_for_updates) 
+        QTimer.singleShot(3000, self.check_for_updates)
+
+
+
+    def load_temp_font(self):
+        try:
+            # הנתיב לגופן באוצריא
+            font_path = r"C:\Program Files\WindowsApps\sivan22.Otzaria_0.2.3.0_x64__r8w7chw81rmdt\data\flutter_assets\fonts\FrankRuehlCLM-Medium.ttf"
+            
+            # טעינה זמנית של הגופן
+            font_id = QFontDatabase.addApplicationFont(font_path)
+            
+            if font_id != -1:
+                # קבלת שם משפחת הגופן
+                font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+                print(f"הגופן {font_family} נטען בהצלחה")
+                
+                # הגדרת הגופן לתצוגה
+                font = QFont(font_family, 18)
+                self.text_display.setFont(font)
+                return True
+            else:
+                print("שגיאה בטעינת הגופן")
+                return False
+                
+        except Exception as e:
+            print(f"שגיאה בטעינת הגופן: {str(e)}")
+            return False
+        
 
     def check_for_updates(self, silent=True):
         """
@@ -4189,9 +4216,9 @@ class MainMenu(QMainWindow):
     def _safe_update_history(self, content, description):
         """שמירת מצב בהיסטוריה"""
         try:
-            # ניקוי התוכן מתגיות זמניות לפני שמירה בהיסטוריה
-            if isinstance(content, str) and '<body' in content:
-                content = self._clean_html_content(content)
+            # בדיקה וניקוי בסיסי של התוכן
+            if not isinstance(content, str):
+                content = str(content)
             
             # מחיקת היסטוריה "עתידית"
             if self.current_index < len(self.document_history) - 1:
@@ -4203,7 +4230,6 @@ class MainMenu(QMainWindow):
             
         except Exception as e:
             print(f"שגיאה בעדכון ההיסטוריה: {str(e)}")
-
 
 
  #---------------------------------------           
@@ -4740,16 +4766,20 @@ class MainMenu(QMainWindow):
     def on_text_changed(self):
         if not self.text_display.isReadOnly():
             try:
-                current_content = self.document_history[self.current_index][0]
-                
-
-                
-                self._safe_update_history(current_content, "עריכה ידנית")
-                self.update_buttons_state()
-            
+            # בדיקה שיש היסטוריה והאינדקס תקין
+                if (self.document_history and 
+                    0 <= self.current_index < len(self.document_history)):                
+                    current_content = self.document_history[self.current_index][0]
+                    self._safe_update_history(current_content, "עריכה ידנית")
+                    self.update_buttons_state()
+                else:
+                    # אם אין היסטוריה, נשמור את התוכן הנוכחי
+                    current_content = self.text_display.toHtml()
+                    self._safe_update_history(current_content, "עריכה ראשונית")
+                    self.update_buttons_state()
+        
             except Exception as e:
                 print(f"שגיאה בעדכון הטקסט: {str(e)}")
-
                 
     def process_text(self, processor_widget):
         if not self.current_file_path:

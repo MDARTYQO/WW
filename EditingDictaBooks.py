@@ -39,33 +39,18 @@ if __name__ == "__main__":
      QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
      app = QApplication(sys.argv)
 
-
-'''
-# כמנהל מערכת
-def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
-
-if not is_admin():
-
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-    sys.exit()
-
-font_path = r"frankruehlclm-medium.ttf"  
-if install_font(font_path):
-    print("הגופן הותקן בהצלחה!")
-else:
-    print("התקנת הגופן נכשלה")
-
-'''
+#if not ctypes.windll.shell32.IsUserAnAdmin():
+#   ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+#   sys.exit()
+    
  #פונקצייה גלובלית לטיפול בשגיאות
 def handle_exception(exc_type, exc_value, exc_traceback):
     """טיפול בשגיאות לא מטופלות"""
     print(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
     
 sys.excepthook = handle_exception
+
+
 
  #עיצוב גלובלי
 GLOBAL_STYLE = """
@@ -135,6 +120,74 @@ class NavigationLoader(QThread):
             self.finished.emit(result)
             print("סיום ניתוח כותרות")  
 
+
+#מחלקה לגימטרייה
+class Gematria:
+    # יצירת מופע סטטי יחיד של המחלקה
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(Gematria, cls).__new__(cls)
+            cls._instance._init_values()
+        return cls._instance
+
+    def _init_values(self):
+        """אתחול המילונים של המרות גימטריה"""
+        # מילון המרה מאותיות עבריות למספרים
+        self._letter_values = {
+            'א': 1, 'ב': 2, 'ג': 3, 'ד': 4, 'ה': 5, 'ו': 6, 'ז': 7, 'ח': 8, 'ט': 9,
+            'י': 10, 'כ': 20, 'ל': 30, 'מ': 40, 'נ': 50, 'ס': 60, 'ע': 70, 'פ': 80, 'צ': 90,
+            'ק': 100, 'ר': 200, 'ש': 300, 'ת': 400,
+            'ך': 20, 'ם': 40, 'ן': 50, 'ף': 80, 'ץ': 90,  # סופיות
+        }
+
+        # מילון הפוך - ממספרים לאותיות (ללא אותיות סופיות)
+        self._number_values = {
+            1: 'א', 2: 'ב', 3: 'ג', 4: 'ד', 5: 'ה', 6: 'ו', 7: 'ז', 8: 'ח', 9: 'ט',
+            10: 'י', 20: 'כ', 30: 'ל', 40: 'מ', 50: 'נ', 60: 'ס', 70: 'ע', 80: 'פ', 90: 'צ',
+            100: 'ק', 200: 'ר', 300: 'ש', 400: 'ת'
+        }
+
+    @staticmethod
+    def to_number(text):
+        """ממיר מחרוזת בגימטריה למספר"""
+        if not isinstance(text, str):
+            return 0
+            
+        instance = Gematria()
+        # ניקוי הטקסט מתווים מיוחדים
+        text = text.strip().replace('"', '').replace("'", '')
+        
+        total = 0
+        for letter in text:
+            if letter in instance._letter_values:
+                total += instance._letter_values[letter]
+        return total
+
+    @staticmethod
+    def to_letter(number):
+        """ממיר מספר לייצוג גימטרי"""
+        if not isinstance(number, (int, float)) or number <= 0:
+            return ''
+            
+        instance = Gematria()
+        number = int(number)
+        result = []
+        remaining = number
+        
+        # מעבר על המספרים מהגדול לקטן
+        for value in sorted(instance._number_values.keys(), reverse=True):
+            while remaining >= value:
+                result.append(instance._number_values[value])
+                remaining -= value
+                
+        return ''.join(result)
+
+# יצירת מופע גלובלי של המחלקה כדי שהקוד הקיים ימשיך לעבוד
+gematria = Gematria()     
+
+# עד כאן
 
 # ==========================================
 # Script 1: יצירת כותרות לאוצריא
@@ -1940,74 +1993,6 @@ class ReplacePageBHeaders(QWidget):
 
 
 
-#מחלקה לגימטרייה
-class Gematria:
-    # יצירת מופע סטטי יחיד של המחלקה
-    _instance = None
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(Gematria, cls).__new__(cls)
-            cls._instance._init_values()
-        return cls._instance
-
-    def _init_values(self):
-        """אתחול המילונים של המרות גימטריה"""
-        # מילון המרה מאותיות עבריות למספרים
-        self._letter_values = {
-            'א': 1, 'ב': 2, 'ג': 3, 'ד': 4, 'ה': 5, 'ו': 6, 'ז': 7, 'ח': 8, 'ט': 9,
-            'י': 10, 'כ': 20, 'ל': 30, 'מ': 40, 'נ': 50, 'ס': 60, 'ע': 70, 'פ': 80, 'צ': 90,
-            'ק': 100, 'ר': 200, 'ש': 300, 'ת': 400,
-            'ך': 20, 'ם': 40, 'ן': 50, 'ף': 80, 'ץ': 90,  # סופיות
-        }
-
-        # מילון הפוך - ממספרים לאותיות (ללא אותיות סופיות)
-        self._number_values = {
-            1: 'א', 2: 'ב', 3: 'ג', 4: 'ד', 5: 'ה', 6: 'ו', 7: 'ז', 8: 'ח', 9: 'ט',
-            10: 'י', 20: 'כ', 30: 'ל', 40: 'מ', 50: 'נ', 60: 'ס', 70: 'ע', 80: 'פ', 90: 'צ',
-            100: 'ק', 200: 'ר', 300: 'ש', 400: 'ת'
-        }
-
-    @staticmethod
-    def to_number(text):
-        """ממיר מחרוזת בגימטריה למספר"""
-        if not isinstance(text, str):
-            return 0
-            
-        instance = Gematria()
-        # ניקוי הטקסט מתווים מיוחדים
-        text = text.strip().replace('"', '').replace("'", '')
-        
-        total = 0
-        for letter in text:
-            if letter in instance._letter_values:
-                total += instance._letter_values[letter]
-        return total
-
-    @staticmethod
-    def to_letter(number):
-        """ממיר מספר לייצוג גימטרי"""
-        if not isinstance(number, (int, float)) or number <= 0:
-            return ''
-            
-        instance = Gematria()
-        number = int(number)
-        result = []
-        remaining = number
-        
-        # מעבר על המספרים מהגדול לקטן
-        for value in sorted(instance._number_values.keys(), reverse=True):
-            while remaining >= value:
-                result.append(instance._number_values[value])
-                remaining -= value
-                
-        return ''.join(result)
-
-# יצירת מופע גלובלי של המחלקה כדי שהקוד הקיים ימשיך לעבוד
-gematria = Gematria()     
-
-# עד כאן
-
     
    
 def create_labeled_widget(label_text, widget):
@@ -3411,22 +3396,19 @@ class MainMenu(QMainWindow):
         self.current_index = -1
         self.current_content = "" 
         self.last_processor_title = ""
-        self.current_version = "3.3.0"
-
+        self.current_version = "3.0.0"
 
         # התקנת הגופנים
         try:
             success = self.install_specific_font()
             if success:
-                print("הגופנים הותקנו בהצלחה")
+               print("הגופנים הותקנו בהצלחה")
             else:
                 print("לא היה צורך בהתקנת גופנים או שההתקנה נכשלה")
         except Exception as e:
-            print(f"שגיאה בהתקנת הגופנים: {str(e)}")
-            QMessageBox.critical(self, "שגיאה", f"שגיאה בהתקנת הגופנים: {str(e)}")
+           print(f"שגיאה בהתקנת הגופנים: {str(e)}")
+           QMessageBox.critical(self, "שגיאה", f"שגיאה בהתקנת הגופנים: {str(e)}")
         
-
-
         
         # הגדרת החלון
         self.setWindowTitle("עריכת ספרי דיקטה עבור אוצריא")
@@ -3437,7 +3419,7 @@ class MainMenu(QMainWindow):
         self.create_side_menu()
 
         # יצירת תצוגת הטקסט
-        self.text_display = QTextBrowser()  # חזרה ל-QTextBrowser
+        self.text_display = QTextBrowser() 
         self.text_display.setReadOnly(False)
         self.text_display.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.text_display.document().setDefaultTextOption(QTextOption(Qt.AlignmentFlag.AlignRight))
@@ -3460,7 +3442,7 @@ class MainMenu(QMainWindow):
                 }
         """)
     
-        # תבנית HTML עם הגדרות עברית והסטייל המשולב
+        # עברית
         self.html_template = """
             <!DOCTYPE html>
             <html lang="he" dir="rtl">
@@ -3487,7 +3469,7 @@ class MainMenu(QMainWindow):
             </html>
             
        """
-         # מערך לשמירת כפתורי העריכה
+         
         self.editing_buttons = []
          # אתחול ממשק המשתמש
         self.init_ui()       
@@ -3806,8 +3788,41 @@ class MainMenu(QMainWindow):
         text_display_layout = QHBoxLayout(text_display_container)
         text_display_layout.setContentsMargins(20, 5, 5, 20)
         text_display_layout.setSpacing(0)
-        text_display_layout.addWidget(self.side_menu)
-        text_display_layout.addWidget(self.text_display)
+
+        # תווית לשם הקובץ (מעל הכל)
+        self.file_name_label = QLabel()
+        self.file_name_label.setStyleSheet("""
+            QLabel {
+                color: #1a365d;
+                font-family: "Segoe UI", Arial;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 2px;
+                margin: 0;
+                background-color: transparent;
+            }
+        """)
+        self.file_name_label.setAlignment(Qt.AlignCenter)
+        self.file_name_label.hide()
+
+        # מיכל לכל התוכן (כולל תפריט צד וטקסט)
+        content_container = QWidget()
+        content_layout = QHBoxLayout(content_container)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+        content_layout.addWidget(self.side_menu)
+        content_layout.addWidget(self.text_display)
+
+        # מיכל אנכי ראשי שמכיל את התווית והתוכן
+        main_display_container = QWidget()
+        main_display_layout = QVBoxLayout(main_display_container)
+        main_display_layout.setContentsMargins(0, 0, 0, 0)
+        main_display_layout.setSpacing(5)
+        main_display_layout.addWidget(self.file_name_label)
+        main_display_layout.addWidget(content_container)
+
+       # הוספת המיכל הראשי למיכל התצוגה
+        text_display_layout.addWidget(main_display_container)
 
         # סידור סופי של הרכיבים
         main_content_layout.addWidget(action_buttons_container)
@@ -3954,7 +3969,7 @@ class MainMenu(QMainWindow):
 
     def update_navigation_menu(self):
         """עדכון תפריט הניווט פעם אחת בלבד"""
-        if self.navigation_updated:  # אם כבר עודכן, נצא מהפונקציה
+        if self.navigation_updated:  
             return
             
         try:
@@ -4471,12 +4486,7 @@ class MainMenu(QMainWindow):
             layout.addWidget(help_text)
 
             dialog.setLayout(layout)
-            dialog.show()
-
-
-
-
-            
+            dialog.show()           
 
     def find_text(self, forward=True):
         """חיפוש טקסט עם אפשרויות מתקדמות"""
@@ -4624,6 +4634,14 @@ class MainMenu(QMainWindow):
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 content = file.read()
+
+
+              # עדכון שם הקובץ בתווית
+            file_name = os.path.basename(file_path)
+            file_name = file_name.rsplit('.', 1)[0]
+            self.file_name_label.setText(f"קובץ נוכחי: {file_name}")
+            self.file_name_label.setText(f"{file_name}")
+            self.file_name_label.show()          
             
             # פשוט להציג את התוכן כ-HTML
             self.text_display.setHtml(content)
@@ -4883,8 +4901,8 @@ class MainMenu(QMainWindow):
             
         try:
             content = self.text_display.toHtml()
-            # המרה חזרה - הסרת תגי <br> 
-            content = content.replace('<br>\n', '\n')
+
+            #content = content.replace('<br>\n', '\n')
             
             with open(self.current_file_path, 'w', encoding='utf-8') as file:
                 file.write(content)
@@ -5083,7 +5101,7 @@ class MainMenu(QMainWindow):
                         def enum_windows_callback(hwnd, _):
                             if win32gui.IsWindowVisible(hwnd):
                                 t, w = win32gui.GetWindowText(hwnd), win32gui.GetClassName(hwnd)
-                                if "עריכת ספרי דיקטה" in t:  # או כל שם אחר שמזהה את החלון שלך
+                                if "עריכת ספרי דיקטה" in t: 
                                     win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
                         
                         win32gui.EnumWindows(enum_windows_callback, None)

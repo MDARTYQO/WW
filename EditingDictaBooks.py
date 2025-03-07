@@ -20,16 +20,16 @@ import re
 import os
 import ssl
 import requests
+import requests.adapters
 import certifi
 import shutil
 import logging
 from ctypes import wintypes
-#from packaging import version
 import base64
 from urllib3.util.ssl_ import create_urllib3_context
 import urllib.request
 import traceback
-import requests.adapters
+
 
 
 #if __name__ == "__main__":
@@ -38,23 +38,27 @@ import requests.adapters
    #  app = QApplication(sys.argv)
 
     
- #פונקצייה גלובלית לטיפול בשגיאות
+
+     #  פונקצייה גלובלית לטיפול בשגיאות
+
 def handle_exception(exc_type, exc_value, exc_traceback):
     """טיפול בשגיאות לא מטופלות"""
     print(''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
     
 sys.excepthook = handle_exception
 
-# עידכון סטטוס גלובלי
+    # עידכון סטטוס גלובלי
+
 def update_global_status(message, status_type="info"):
     """
     פונקציה גלובלית לעדכון סטטוס עם סוגי סטטוס שונים
+    Global function for updating status with different status types
     """
     styles = {
-        "success": "color: green;",
-        "error": "color: red;",
-        "warning": "color: orange;",
-        "info": "color: black;"
+        "success": "color: green; font-size: 18pt; font-family: Segoe UI;",
+        "error": "color: red; font-size: 18pt; font-family: Segoe UI;",
+        "warning": "color: orange; font-size: 18pt; font-family: Segoe UI;",
+        "info": "color: black; font-size: 18pt; font-family: Segoe UI;"
     }
     
     for widget in QApplication.topLevelWidgets():
@@ -93,6 +97,10 @@ myappid = 'MIT.LEARN_PYQT.dictatootzaria'
 # מחרוזת Base64 של האייקון (החלף את זה עם המחרוזת שתקבל אחרי המרת הקובץ שלך ל־Base64)
 icon_base64 = "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"
 
+
+
+
+# מחלקה עבור נווט כותרות
 class NavigationLoader(QThread):
     """מחלקה לטעינת וניתוח כותרות ברקע"""
     finished = pyqtSignal(dict)
@@ -3449,8 +3457,13 @@ class MainMenu(QMainWindow):
         self.setWindowTitle("עריכת ספרי דיקטה עבור אוצריא")
         self.setLayoutDirection(Qt.RightToLeft)
         self.setWindowIcon(self.load_icon_from_base64(icon_base64))
-        self.setGeometry(100, 50, 1700, 950)
-        
+
+        # חישוב גודל החלון באופן דינמי בהתאם לגודל המסך
+        screen = QApplication.primaryScreen().geometry()
+        window_width = int(screen.width() * 0.8)  
+        window_height = int(screen.height() * 0.8)  
+        self.setGeometry(100, 50, window_width, window_height)
+
         self.create_side_menu()
 
         # יצירת תצוגת הטקסט
@@ -3477,33 +3490,7 @@ class MainMenu(QMainWindow):
                 }
         """)
     
-        # עברית
-        self.html_template = """
-            <!DOCTYPE html>
-            <html lang="he" dir="rtl">
-                    <head>
-                            <meta charset="UTF-8">
-                            <style>
-                                    body {
-                                            direction: rtl;
-                                            text-align: right;
-                                    }
-                                    pre {
-                                            white-space: pre-line;
-                                            margin: 0;
-                                            font-family: inherit;
-                                            direction: rtl;
-                                            text-align: right;
-                                            unicode-bidi: bidi-override;
-                                    }
-                            </style>
-                    </head>
-                    <body dir="rtl">
-                            {}
-                    </body>
-            </html>
-            
-       """
+
          
         self.editing_buttons = []
          # אתחול ממשק המשתמש
@@ -3526,7 +3513,7 @@ class MainMenu(QMainWindow):
             font_id = QFontDatabase.addApplicationFont(font_path)
             
             if font_id != -1:
-                # קבלת שם משפחת הגופן
+
                 font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
                 print(f"הגופן {font_family} נטען בהצלחה")
                 
@@ -3545,7 +3532,6 @@ class MainMenu(QMainWindow):
     def check_for_updates(self, silent=True):
         """
         בדיקת עדכונים חדשים
-        :param silent: האם להציג הודעה כשאין עדכונים
         """
         self.status_label.setText("בודק עדכונים...")
         self.update_checker = UpdateChecker(self.current_version)
@@ -3559,7 +3545,7 @@ class MainMenu(QMainWindow):
 
     def handle_no_update(self):
         """טיפול במקרה שאין עדכון"""
-        self.status_label.setText("התוכנה מעודכנת")  # רק עדכון התווית סטטוס
+        self.status_label.setText("התוכנה מעודכנת")  
 
     def handle_update_error(self, error_msg, silent=False):
         """טיפול בשגיאות בתהליך העדכון"""
@@ -4056,113 +4042,7 @@ class MainMenu(QMainWindow):
         except Exception as e:
             print(f"שגיאה בעדכון תפריט ניווט: {str(e)}")
 
-    def on_navigation_loaded(self, result):
-        """מטפל בתוצאות טעינת הכותרות"""
-        try:
-            if not result['success']:
-                return
 
-            # יצירת הכפתורים עבור כל כותרת
-            for header in result['headers']:
-                button = QPushButton(header['text'])
-                button.setStyleSheet(f"""
-                    QPushButton {{
-                        font-size: {24 - header['level']}px;
-                        font-weight: {700 if header['level'] <= 2 else 400};
-                        color: #1a365d;
-                        padding-right: {(header['level']-1) * 20}px;
-                        text-align: right;
-                    }}
-                """)
-                button.setCursor(Qt.CursorShape.PointingHandCursor)
-                
-                position = header['position']
-                button.clicked.connect(lambda checked, pos=position: self.scroll_to_header(pos))
-                
-                self.headers_layout.addWidget(button)
-
-            # הוספת מרווח בסוף
-            self.headers_layout.addStretch()
-            self.navigation_updated = True  # סימון שהניווט עודכן
-            self.navigation_loader = None  # איפוס ה-loader
-
-        except Exception as e:
-            print(f"שגיאה בטיפול בתוצאות הניווט: {str(e)}")
-
-
-
-    def scroll_to_header(self, position):
-        """גלילה למיקום המדויק של הכותרת"""
-        cursor = self.text_display.textCursor()
-        cursor.setPosition(position)
-        self.text_display.setTextCursor(cursor)
-        self.text_display.ensureCursorVisible()
-
-    def toggle_side_menu(self):
-        """הצגה/הסתרה של תפריט הצד"""
-        try:
-            if self.side_menu.isHidden():
-                self.side_menu.setFixedWidth(300)
-                self.side_menu.show()
-            else:
-                self.side_menu.hide()
-                self.side_menu.setFixedWidth(0)
-        except Exception as e:
-            print(f"Error in toggle_side_menu: {e}")
-        
-
-    def apply_tag_to_file(self, tag_name, selected_text):
-        """פונקציית עזר להחלפת או הוספת תג לקובץ"""
-        try:
-            # קריאת תוכן הקובץ
-            with open(self.current_file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
-            
-            import re
-            
-            # חיפוש הטקסט המסומן עם או בלי תגיות HTML
-            pattern = f'<h[1-6]>{re.escape(selected_text)}</h[1-6]>|<[bi]>{re.escape(selected_text)}</[bi]>|<span[^>]*>{re.escape(selected_text)}</span>|{re.escape(selected_text)}'
-            match = re.search(pattern, content)
-            
-            if match:
-                old_text = match.group(0)  # הטקסט המקורי שנמצא
-                
-                # יצירת הטקסט החדש בהתאם לסוג התג
-                if tag_name == "remove":
-                    new_text = selected_text  # הסרת עיצוב - השארת הטקסט בלבד
-                elif tag_name.startswith('span style="font-size:'):
-                    # טיפול בתגיות span עם גודל
-                    new_text = f'<{tag_name}>{selected_text}</span>'
-                elif tag_name.startswith('h'):
-                    # טיפול בכותרות
-                    new_text = f'<{tag_name}>{selected_text}</{tag_name}>'
-                else:
-                    # טיפול בתגיות רגילות (b, i וכו')
-                    new_text = f'<{tag_name}>{selected_text}</{tag_name}>'
-                
-                # החלפת הטקסט הישן בחדש
-                new_content = content.replace(old_text, new_text)
-                
-                # שמירה לקובץ
-                with open(self.current_file_path, 'w', encoding='utf-8') as file:
-                    file.write(new_content)
-                
-                # עדכון התצוגה
-                self.text_display.setHtml(new_content)
-                
-                # עדכון היסטוריה
-                if tag_name == "remove":
-                    action_description = "הסרת עיצוב"
-                elif tag_name.startswith('span style="font-size:'):
-                    action_description = "שינוי גודל טקסט"
-                else:
-                    action_description = f"החלפת עיצוב ל-{tag_name}"
-                    
-                self._safe_update_history(new_content, action_description)
-            
-        except Exception as e:
-            QMessageBox.critical(self, "שגיאה", f"שגיאה בעדכון התגית: {str(e)}")
-            
     def remove_formatting(self):
         """הסרת עיצוב מהטקסט המסומן"""
         cursor = self.text_display.textCursor()
@@ -4175,14 +4055,14 @@ class MainMenu(QMainWindow):
         cursor = self.text_display.textCursor()
         if cursor.hasSelection():
             selected_text = cursor.selectedText()
-            self.apply_tag_to_file('span style="font-size:70%;"', selected_text)
+            self.apply_tag_to_file('small', selected_text)
 
     def button2_function(self):
         """הגדלת הטקסט המסומן"""
         cursor = self.text_display.textCursor()
         if cursor.hasSelection():
             selected_text = cursor.selectedText()
-            self.apply_tag_to_file('span style="font-size:150%;"', selected_text)
+            self.apply_tag_to_file('big"', selected_text)
             
     def button3_function(self):
         """הפיכת הטקסט לנטוי"""
@@ -4239,27 +4119,128 @@ class MainMenu(QMainWindow):
         if cursor.hasSelection():
             selected_text = cursor.selectedText()
             self.apply_tag_to_file('h1', selected_text)
-    
-    def _safe_update_history(self, content, description):
-        """שמירת מצב בהיסטוריה"""
+            
+
+    def on_navigation_loaded(self, result):
+        """מטפל בתוצאות טעינת הכותרות"""
         try:
-            # בדיקה וניקוי בסיסי של התוכן
-            if not isinstance(content, str):
-                content = str(content)
+            if not result['success']:
+                return
+
+            # יצירת הכפתורים עבור כל כותרת
+            for header in result['headers']:
+                button = QPushButton(header['text'])
+                button.setStyleSheet(f"""
+                    QPushButton {{
+                        font-size: {24 - header['level']}px;
+                        font-weight: {700 if header['level'] <= 2 else 400};
+                        color: #1a365d;
+                        padding-right: {(header['level']-1) * 20}px;
+                        text-align: right;
+                    }}
+                """)
+                button.setCursor(Qt.CursorShape.PointingHandCursor)
+                
+                position = header['position']
+                button.clicked.connect(lambda checked, pos=position: self.scroll_to_header(pos))
+                
+                self.headers_layout.addWidget(button)
+
+            # הוספת מרווח בסוף
+            self.headers_layout.addStretch()
+            self.navigation_updated = True  # סימון שהניווט עודכן
+            self.navigation_loader = None  # איפוס ה-loader
+
+        except Exception as e:
+            print(f"שגיאה בטיפול בתוצאות הניווט: {str(e)}")
+
+
+
+    def scroll_to_header(self, position):
+        """גלילה למיקום המדויק של הכותרת"""
+        cursor = self.text_display.textCursor()
+        cursor.setPosition(position)
+        self.text_display.setTextCursor(cursor)
+        self.text_display.ensureCursorVisible()
+
+    def toggle_side_menu(self):
+        """הצגה/הסתרה של תפריט הצד"""
+        try:
+            if self.side_menu.isHidden():
+                self.side_menu.setFixedWidth(300)
+                self.side_menu.show()
+            else:
+                self.side_menu.hide()
+                self.side_menu.setFixedWidth(0)
+        except Exception as e:
+            print(f"Error in toggle_side_menu: {e}")
+        
+    def apply_tag_to_file(self, tag_name, selected_text):
+        """פונקציית עזר להחלפת או הוספת תג לקובץ"""
+        try:
+            # קריאת תוכן הקובץ
+            with open(self.current_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
             
-            # מחיקת היסטוריה "עתידית"
-            if self.current_index < len(self.document_history) - 1:
-                self.document_history = self.document_history[:self.current_index + 1]
+            import re
             
-            self.document_history.append((content, description))
-            self.current_index = len(self.document_history) - 1
-            self.update_buttons_state()
+            # חיפוש משופר שמזהה גם תגיות מקוננות
+            def find_text_with_tags(content, text):
+                # מחפש את הטקסט עם כל התגיות שאולי עוטפות אותו
+                pattern = f'(?:<[^>]*>)*{re.escape(text)}(?:</[^>]*>)*'
+                match = re.search(pattern, content)
+                return match
+
+            match = find_text_with_tags(content, selected_text)
+            
+            if match:
+                old_text = match.group(0)  # הטקסט המקורי עם כל התגיות
+                
+                # יצירת הטקסט החדש בהתאם לסוג התג
+                if tag_name == "remove":
+                    new_text = selected_text  # הסרת כל העיצוב
+                else:
+                    # ניקוי התג מתווים לא רצויים
+                    clean_tag = tag_name.strip().replace('"', '').replace('\\', '')
+                    
+                    # שמירה על תגיות קיימות אלא אם זו כותרת
+                    if clean_tag.startswith('h'):
+                        # כותרות מחליפות את כל העיצוב הקיים
+                        new_text = f'<{clean_tag}>{selected_text}</{clean_tag}>'
+                    else:
+                        # שילוב התג החדש עם התגים הקיימים
+                        inner_text = re.sub(r'<[^>]*>|</[^>]*>', '', old_text)  # הסרת תגיות
+                        existing_tags = re.findall(r'<([^/>]+)>', old_text)  # מציאת תגיות קיימות
+                        
+                        # בדיקה אם התג כבר קיים
+                        if clean_tag not in existing_tags:
+                            new_text = f'<{clean_tag}>{old_text}</{clean_tag}>'
+                        else:
+                            new_text = old_text  # אם התג כבר קיים, לא נוסיף אותו שוב
+                
+                # החלפת הטקסט הישן בחדש
+                new_content = content.replace(old_text, new_text)
+                
+                # שמירה לקובץ
+                with open(self.current_file_path, 'w', encoding='utf-8') as file:
+                    file.write(new_content)
+                
+                # עדכון התצוגה
+                self.text_display.setHtml(new_content)
+                
+                # עדכון היסטוריה
+                if tag_name == "remove":
+                    action_description = "הסרת עיצוב"
+                elif clean_tag in ['big', 'small']:
+                    action_description = "שינוי גודל טקסט"
+                else:
+                    action_description = f"הוספת עיצוב {clean_tag}"
+                    
+                self._safe_update_history(new_content, action_description)
             
         except Exception as e:
-            print(f"שגיאה בעדכון ההיסטוריה: {str(e)}")
-
-
-
+            QMessageBox.critical(self, "שגיאה", f"שגיאה בעדכון התגית: {str(e)}")
+    
 #---------------------חיפוש והחלפה----------------
     def open_find_replace(self):
         """פתיחת חלונית חיפוש והחלפה משופרת"""
@@ -4482,7 +4463,7 @@ class MainMenu(QMainWindow):
         
         # המרת תווים מיוחדים
         if self.include_special.isChecked():
-            search_text = text.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
+            search_text = text.replace("\\n", "\n",).replace("\\t", "\t").replace("\\r", "\r")
         
         # התאמה לתנאי החיפוש
         if not self.case_sensitive.isChecked():
@@ -4593,14 +4574,25 @@ class MainMenu(QMainWindow):
             
             # טעינה מחדש של הקובץ
             with open(self.current_file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
+                self.original_content = file.read()
+            
+            # המרת ירידות שורה לתצוגת HTML
+            display_content = self.original_content.replace('\n', '<br>')
             
             # עדכון התצוגה
-            self.text_display.setHtml(content)
+            self.text_display.setHtml(display_content)
             
             # החזרת הסמן למיקום הקודם
+            # נצטרך להתאים את המיקום בגלל תגיות ה-HTML
+            adjusted_position = current_position
+            if '<br>' in display_content[:current_position]:
+                # מספר תגיות ה-<br> לפני המיקום הנוכחי
+                br_count = display_content[:current_position].count('<br>')
+                # התאמת המיקום (כל <br> מוסיף 3 תווים יותר מ-\n)
+                adjusted_position = current_position + (br_count * 3)
+            
             cursor = self.text_display.textCursor()
-            cursor.setPosition(current_position)
+            cursor.setPosition(adjusted_position)
             self.text_display.setTextCursor(cursor)
             
             # עדכון תפריט הניווט
@@ -4610,42 +4602,45 @@ class MainMenu(QMainWindow):
             self.status_label.setText("הקובץ רוענן בהצלחה")
             
         except Exception as e:
-            QMessageBox.critical(self, "שגיאה", f"שגיאה בריענון הקובץ: {str(e)}")        
+            QMessageBox.critical(self, "שגיאה", f"שגיאה בריענון הקובץ: {str(e)}")       
         
 
     def load_file(self, file_path):
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
+                # קריאת התוכן המקורי
+                self.original_content = file.read()
 
+                # עדכון שם הקובץ בתווית
+                file_name = os.path.basename(file_path)
+                file_name = file_name.rsplit('.', 1)[0]
+                self.file_name_label.setText(f"קובץ נוכחי: {file_name}")
+                self.file_name_label.setText(f"{file_name}")
+                self.file_name_label.show()          
+            
+                # המרה ל-HTML לתצוגה תוך שמירה על ירידות שורה
+                html_content = self.original_content.replace('\n', '<br>')
+                self.text_display.setHtml(html_content)
+                self.current_file_path = file_path
+            
+                # שמירת התוכן המקורי בהיסטוריה
+                self.document_history = [(self.original_content, "מצב התחלתי")]
+                self.current_index = 0
+            
+                self.navigation_updated = False
+                self.update_navigation_menu()
+                self.update_buttons_state()
 
-              # עדכון שם הקובץ בתווית
-            file_name = os.path.basename(file_path)
-            file_name = file_name.rsplit('.', 1)[0]
-            self.file_name_label.setText(f"קובץ נוכחי: {file_name}")
-            self.file_name_label.setText(f"{file_name}")
-            self.file_name_label.show()          
-            
-            # פשוט להציג את התוכן כ-HTML
-            self.text_display.setHtml(content)
-            self.current_file_path = file_path
-            
-            self.document_history = [(content, "מצב התחלתי")]
-            self.current_index = 0
-            
-            self.navigation_updated = False
-            self.update_navigation_menu()
-            self.update_buttons_state()
-            
+                
         except Exception as e:
-            QMessageBox.critical(self, "שגיאה", f"שגיאה בטעינת הקובץ: {str(e)}")
+                QMessageBox.critical(self, "שגיאה", f"שגיאה בטעינת הקובץ: {str(e)}")
 
     def save_file(self):
         if not self.current_file_path:
             return
                 
         try:
-            # לקחת את התוכן כמו שהוא מתוך ההיסטוריה הנוכחית
+            # לקחת את התוכן כמו שהוא מתוך הקובץ הנוכחי
             with open(self.current_file_path, 'r', encoding='utf-8') as file:
                  content = file.read()
                  
@@ -4653,32 +4648,35 @@ class MainMenu(QMainWindow):
                 file.write(content)
             
             self.status_label.setText("הקובץ נשמר בהצלחה")
-                
+                    
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"שגיאה בשמירת הקובץ: {str(e)}")
 
-
-
     def refresh_after_processing(self):
         try:
+            # קריאת התוכן המעודכן מהקובץ
             with open(self.current_file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
-            
-            # הצגה כ-HTML לתצוגה מעוצבת
-            self.text_display.setHtml(content)
-            
+                self.original_content = file.read()
+        
+            # המרה ל-HTML לתצוגה תוך שמירה על ירידות שורה
+            html_content = self.original_content.replace('\n', '<br>')
+            self.text_display.setHtml(html_content)
+        
             # עדכון הסטטוס בהתאם לחלון האחרון שהיה פעיל
             if hasattr(self, 'last_processor_title') and self.last_processor_title:
                 action_description = self._get_action_description(self.last_processor_title)
                 self.status_label.setText(action_description)
-                self._safe_update_history(content, action_description)
             
+                # עדכון ההיסטוריה עם התוכן המקורי (לא ה-HTML)
+                self._safe_update_history(self.original_content, action_description)
+        
                 # ניקוי שם החלון האחרון כדי למנוע כפילויות
                 self.last_processor_title = None
                 
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"שגיאה בעדכון התצוגה: {str(e)}")
-        
+
+            
     def edit_text(self):
         """פונקציה לניהול מצב העריכה"""
         is_editing_mode = self.editing_buttons[0].isHidden()
@@ -4724,24 +4722,7 @@ class MainMenu(QMainWindow):
         self.update_buttons_state()
 
 
-    def on_text_changed(self):
-        if not self.text_display.isReadOnly():
-            try:
-            # בדיקה שיש היסטוריה והאינדקס תקין
-                if (self.document_history and 
-                    0 <= self.current_index < len(self.document_history)):                
-                    current_content = self.document_history[self.current_index][0]
-                    self._safe_update_history(current_content, "עריכה ידנית")
-                    self.update_buttons_state()
-                else:
-                    # אם אין היסטוריה, נשמור את התוכן הנוכחי
-                    current_content = self.text_display.toHtml()
-                    self._safe_update_history(current_content, "עריכה ראשונית")
-                    update_global_status("בוצעה עריכה ידנית בטקסט")
-                    self.update_buttons_state()
-        
-            except Exception as e:
-                print(f"שגיאה בעדכון הטקסט: {str(e)}")
+
                 
     def process_text(self, processor_widget):
         if not self.current_file_path:
@@ -4762,29 +4743,46 @@ class MainMenu(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"שגיאה בעיבוד הטקסט: {str(e)}")
             
-    def _complete_processing(self, processor_widget, original_content):
+    def on_text_changed(self):
         try:
+            # קריאת התוכן מהקובץ ולא מהתצוגה
             with open(self.current_file_path, 'r', encoding='utf-8') as file:
-                new_content = file.read()
-
-            if new_content != original_content:
-                # המרה לתצוגה
-                display_content = new_content.replace('\n', '<br>\n')
-
-                self.text_display.setHtml(display_content)
-
-                action_description = self._get_action_description(processor_widget.windowTitle())
-
-                self._safe_update_history(new_content, action_description)
-                self.status_label.setText(action_description)
-
-                processor_widget.changes_made.emit()
-            else:
-                self.status_label.setText("לא בוצעו שינויים")
-
+                current_content = file.read()
+            
+            self._safe_update_history(current_content, "שינוי טקסט")
+            
         except Exception as e:
-            QMessageBox.critical(self, "שגיאה", f"שגיאה בהשלמת העיבוד: {str(e)}")
-            self.status_label.setText("שגיאה בעיבוד")
+            print(f"שגיאה בעדכון הטקסט: {str(e)}")
+            
+    def _safe_update_history(self, content, description):
+        """שמירת מצב בהיסטוריה"""
+        try:
+            # נקרא את התוכן הנוכחי מהקובץ
+            with open(self.current_file_path, 'r', encoding='utf-8') as file:
+                current_content = file.read()
+            
+            # נשווה עם המצב הנוכחי בהיסטוריה
+            if len(self.document_history) > 0:
+                current_state = self.document_history[self.current_index][0]
+            else:
+                current_state = ""
+
+            # רק אם יש שינוי אמיתי בתוכן
+            if current_content != current_state:
+                # מחיקת היסטוריה עתידית רק אם זה תוכן חדש
+                if content != current_content:
+                    if self.current_index < len(self.document_history) - 1:
+                        self.document_history = self.document_history[:self.current_index + 1]
+                
+                # שומרים את התוכן החדש להיסטוריה
+                self.document_history.append((current_content, description))
+                self.current_index = len(self.document_history) - 1
+                
+            self.update_buttons_state()
+            
+        except Exception as e:
+            print(f"שגיאה בעדכון ההיסטוריה: {str(e)}")
+
 
 
 
@@ -4793,34 +4791,55 @@ class MainMenu(QMainWindow):
         try:
             if self.current_index > 0:
                 self.current_index -= 1
-                content = self.document_history[self.current_index][0] 
+                content = self.document_history[self.current_index][0]
 
-                #display_content = content.replace('\n', '<br>\n')
-                #self.text_display.setHtml(display_content)
-
-                #self.status_label.setText(f"בוטל: {original_status}")
-
+                # שמירה לקובץ בדיוק כמו ב-save_file
                 with open(self.current_file_path, 'w', encoding='utf-8') as file:
                     file.write(content)
+                
+                # קריאה מחדש בדיוק כמו ב-save_file
+                with open(self.current_file_path, 'r', encoding='utf-8') as file:
+                    content = file.read()
+                
+                # הצגת התוכן
+                self.text_display.setHtml(content)
+
+                self.status_label.setText(f"בוטל: {self.document_history[self.current_index][1]}")
                 update_global_status("בוצע ביטול פעולה")
                 self.update_buttons_state()
                 
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"שגיאה בביטול פעולה: {str(e)}")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "שגיאה", f"שגיאה בביטול פעולה: {str(e)}")
 
     def redo_action(self):
+        """שחזור פעולה שבוטלה"""
         try:
             if self.current_index < len(self.document_history) - 1:
                 self.current_index += 1
                 content, description = self.document_history[self.current_index]
-                #display_content = content.replace('\n', '<br>\n')
-                #self.text_display.setHtml(display_content)
                 
-                self.status_label.setText(f"שוחזר:  {original_status}")
+                # שמירת הטקסט בקובץ כמו שהוא (ללא שינוי פורמט)
                 with open(self.current_file_path, 'w', encoding='utf-8') as file:
                     file.write(content)
+
+                # טעינה מחדש של הקובץ לתצוגה
+                with open(self.current_file_path, 'r', encoding='utf-8') as file:
+                    display_content = file.read()
                 
-                #self.status_label.setText(description)
+                # הצגת התוכן כ-HTML
+                self.text_display.setHtml(display_content)
+                
+                # עדכון סטטוס
+                self.status_label.setText(f"שוחזר: {description}")
+                
+                # עדכון תפריט הניווט
+                self.navigation_updated = False
+                self.update_navigation_menu()
+                
+                # עדכון מצב כפתורים
                 self.update_buttons_state()
                 
         except Exception as e:
@@ -4880,7 +4899,7 @@ class MainMenu(QMainWindow):
         try:
             content = self.text_display.toHtml()
 
-            #content = content.replace('<br>\n', '\n')
+            content = content.replace('<br>\n', '\n')
             
             with open(self.current_file_path, 'w', encoding='utf-8') as file:
                 file.write(content)
@@ -4899,20 +4918,19 @@ class MainMenu(QMainWindow):
             return
             
         try:
+               # קריאת התוכן המקורי מהקובץ
             with open(self.current_file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
-            
-            # המרת ירידות שורה לתצוגה
-            #display_content = content.replace('\n', '<br>\n')
-            #self.text_display.setHtml(display_content)
+                self.original_content = file.read()
+        
+            # המרת ירידות שורה לתצוגת HTML
+            display_content = self.original_content.replace('\n', '<br>')
+            self.text_display.setHtml(display_content)
 
+            # הגדרת תיאור הפעולה
             action_description = self.last_processor_title if self.last_processor_title else "עדכון תוכן"
         
-            # עדכון ההיסטוריה עם התוכן והתיאור המקורי
-            self._safe_update_history(content, action_description)
-            
-            # עדכון ההיסטוריה עם התוכן המקורי (ללא HTML)
-            self._safe_update_history(content, action_description)
+            # עדכון ההיסטוריה פעם אחת בלבד עם התוכן המקורי
+            self._safe_update_history(self.original_content, action_description)
 
             print(f"עודכן תוכן חדש - תיאור: {action_description}")
             print(f"גודל היסטוריה: {len(self.document_history)}")
@@ -4920,7 +4938,7 @@ class MainMenu(QMainWindow):
         except Exception as e:
             print(f"שגיאה בעדכון התוכן: {str(e)}")
             QMessageBox.critical(self, "שגיאה", f"שגיאה בעדכון התוכן: {str(e)}")
-
+            
     def open_about_dialog(self):
         """פתיחת חלון 'אודות'"""
         dialog = AboutDialog(self)

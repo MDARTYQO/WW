@@ -30,9 +30,7 @@ from urllib3.util.ssl_ import create_urllib3_context
 import urllib.request
 import traceback
 import requests.adapters
-from PyQt5.QtWidgets import QShortcut
-from PyQt5.QtGui import QKeySequence
-import chardet
+
 
 #if __name__ == "__main__":
  #    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
@@ -3426,7 +3424,6 @@ class MainMenu(QMainWindow):
         self.document_history = []
         self.redo_history = []        
         self.current_file_path = ""
-        self.last_cursor_position = 0
         self.current_index = -1
         self.current_content = "" 
         self.last_processor_title = ""
@@ -3434,7 +3431,6 @@ class MainMenu(QMainWindow):
         self.navigation_updated = False
         self.text_display = QTextBrowser()
         self.navigation_loader = None
-        self.file_encoding = None
         QApplication.instance().main_window = self
 
                 # ניסיון לטעון את הגופן
@@ -3457,27 +3453,14 @@ class MainMenu(QMainWindow):
         
         self.create_side_menu()
 
-
-
-        
-
         # יצירת תצוגת הטקסט
-        
         self.text_display = QTextBrowser() 
         self.text_display.setReadOnly(False)
         self.text_display.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.text_display.document().setDefaultTextOption(QTextOption(Qt.AlignmentFlag.AlignRight))
-
-
-        if self.current_file_path:
-            self.file_encoding = self.detect_file_encoding(self.current_file_path)
-            with open(self.current_file_path, 'r', encoding=self.file_encoding) as file:
-                self.last_content = file.read()
         
         self.text_display.textChanged.connect(self.on_text_changed)
-        self.text_display.textChanged.connect(self.handle_direct_typing)
-        self.text_display.setUndoRedoEnabled(True)
-        
+    
         base_font = QFont('"Frank Ruehl CLM","Segoe UI"', 18)
         self.text_display.setFont(base_font)
     
@@ -3588,13 +3571,7 @@ class MainMenu(QMainWindow):
             )
         self.status_label.setText("שגיאה בבדיקת עדכונים")
 
-
-
-
-    
-        
     def init_ui(self):
-        
         """אתחול ממשק המשתמש"""
         # יצירת מיכל ראשי
         main_container = QWidget()
@@ -3785,17 +3762,6 @@ class MainMenu(QMainWindow):
         text_bottom_buttons.setSpacing(10)
         text_bottom_buttons.setContentsMargins(15, 10, 15, 10)
 
-
-        # הגדרת קיצורי מקלדת
-        undo_shortcut = QShortcut(QKeySequence.Undo, self)  # Ctrl+Z
-        undo_shortcut.activated.connect(self.undo_action)
-        
-        redo_shortcut = QShortcut(QKeySequence.Redo, self)  # Ctrl+Y או Ctrl+Shift+Z
-        redo_shortcut.activated.connect(self.redo_action)
-        
-        # הפעלת תכונת ביטול מובנית
-        self.text_display.setUndoRedoEnabled(True)
-
         # הגדרת כפתורי עריכה
         buttons_data = [
             ("הסר", self.remove_formatting),
@@ -3973,58 +3939,8 @@ class MainMenu(QMainWindow):
         main_layout.addWidget(main_content)
 
         self.setCentralWidget(main_container)
-        
-        self.text_display.textChanged.connect(self.handle_direct_typing)
 
 
-
-    def detect_file_encoding(self, file_path):
-        """זיהוי קידוד הקובץ"""
-        try:
-            with open(file_path, 'rb') as file:
-                raw_data = file.read()
-                result = chardet.detect(raw_data)
-                return result['encoding']
-        except Exception as e:
-            print(f"שגיאה בזיהוי קידוד: {str(e)}")
-            return 'utf-8'  # ברירת מחדל
-
-
-    def convert_file_to_utf8(self, file_path):
-        """המרת קובץ ל-UTF-8 בלי לשנות את התוכן"""
-        try:
-            # קריאת הקובץ במצב בינארי
-            with open(file_path, 'rb') as file:
-                raw_bytes = file.read()
-
-            # זיהוי הקידוד המקורי
-            result = chardet.detect(raw_bytes)
-            original_encoding = result['encoding'] if result['encoding'] else 'utf-8'
-
-            if original_encoding.lower() != 'utf-8':
-                # המרה בינארית - מהקידוד המקורי ל-UTF-8
-                content_str = raw_bytes.decode(original_encoding, errors='replace')
-                utf8_bytes = content_str.encode('utf-8')
-
-                # שמירה במצב בינארי
-                with open(file_path, 'wb') as file:
-                    file.write(utf8_bytes)
-
-                print(f"הקובץ הומר מ-{original_encoding} ל-UTF-8")
-                return True
-
-        except Exception as e:
-            print(f"שגיאה בהמרה ל-UTF-8: {str(e)}")
-            return False
-    
-    def prepare_file_for_editing(self, file_path):
-        """הכנת הקובץ לעריכה"""
-        if self.convert_file_to_utf8(file_path):
-            self.file_encoding = 'utf-8'
-            return True
-        return False
-            
-        
 
     def create_side_menu(self):
         """יצירת תפריט הצד לניווט בכותרות"""
@@ -4323,27 +4239,7 @@ class MainMenu(QMainWindow):
         if cursor.hasSelection():
             selected_text = cursor.selectedText()
             self.apply_tag_to_file('h1', selected_text)
-
-
-
-    def update_cursor_position(self):
-        """עדכון מיקום הסמן הנוכחי"""
-        cursor = self.text_display.textCursor()
-        self.last_cursor_position = cursor.position()
     
-    def handle_direct_typing(self):
-        """כתיבה ישירה לקובץ בזמן הקלדה"""
-        if not self.text_display.isReadOnly() and self.current_file_path:
-            try:
-                current_text = self.text_display.toPlainText()
-                
-                # כתיבה ישירה ב-UTF-8
-                with open(self.current_file_path, 'w', encoding='utf-8') as file:
-                    file.write(current_text)
-                    
-            except Exception as e:
-                print(f"שגיאה בכתיבה לקובץ: {str(e)}")
-                
     def _safe_update_history(self, content, description):
         """שמירת מצב בהיסטוריה"""
         try:
@@ -4716,27 +4612,25 @@ class MainMenu(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "שגיאה", f"שגיאה בריענון הקובץ: {str(e)}")        
         
+
     def load_file(self, file_path):
         try:
-            # קריאה רגילה של הקובץ - בלי המרות
             with open(file_path, 'r', encoding='utf-8') as file:
-                raw_content = file.read()
+                content = file.read()
 
-            # עדכון שם הקובץ בתווית
+
+              # עדכון שם הקובץ בתווית
             file_name = os.path.basename(file_path)
             file_name = file_name.rsplit('.', 1)[0]
+            self.file_name_label.setText(f"קובץ נוכחי: {file_name}")
             self.file_name_label.setText(f"{file_name}")
             self.file_name_label.show()          
             
-            # שומרים את התוכן המקורי בשדה חדש
-            self.original_content = raw_content
-            
-            # הצגת התוכן בתצוגה
-            self.text_display.setHtml(self.original_content)
+            # פשוט להציג את התוכן כ-HTML
+            self.text_display.setHtml(content)
             self.current_file_path = file_path
             
-            # שמירת התוכן המקורי להיסטוריה
-            self.document_history = [(self.original_content, "מצב התחלתי")]
+            self.document_history = [(content, "מצב התחלתי")]
             self.current_index = 0
             
             self.navigation_updated = False
@@ -4831,26 +4725,23 @@ class MainMenu(QMainWindow):
 
 
     def on_text_changed(self):
-        """מטפל בשינויי טקסט - משתמש בפונקציית השמירה הקיימת"""
-        if not self.text_display.isReadOnly() and self.current_file_path:
+        if not self.text_display.isReadOnly():
             try:
-                # שימוש בפונקציית השמירה הקיימת
-                self.save_file()
-            
+            # בדיקה שיש היסטוריה והאינדקס תקין
+                if (self.document_history and 
+                    0 <= self.current_index < len(self.document_history)):                
+                    current_content = self.document_history[self.current_index][0]
+                    self._safe_update_history(current_content, "עריכה ידנית")
+                    self.update_buttons_state()
+                else:
+                    # אם אין היסטוריה, נשמור את התוכן הנוכחי
+                    current_content = self.text_display.toHtml()
+                    self._safe_update_history(current_content, "עריכה ראשונית")
+                    update_global_status("בוצעה עריכה ידנית בטקסט")
+                    self.update_buttons_state()
+        
             except Exception as e:
-                print(f"שגיאה בשמירת הקובץ: {str(e)}")
-    
-    def keyPressEvent(self, event):
-        """טיפול באירועי מקלדת"""
-        if event.matches(QKeySequence.Undo):
-            self.undo_action()
-            event.accept()
-        elif event.matches(QKeySequence.Redo):
-            self.redo_action()
-            event.accept()
-        else:
-            super().keyPressEvent(event)
-                
+                print(f"שגיאה בעדכון הטקסט: {str(e)}")
                 
     def process_text(self, processor_widget):
         if not self.current_file_path:
